@@ -1,0 +1,51 @@
+services:
+  # Backend API
+  - type: web
+    name: happysnack-api
+    env: python
+    region: frankfurt
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: happysnack-db
+          property: connectionString
+      - key: BOT_TOKEN
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ADMIN_TELEGRAM_ID
+        value: "473294026"
+
+  # Telegram Bot
+  - type: worker
+    name: happysnack-bot
+    env: python
+    region: frankfurt
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python bot.py"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: happysnack-db
+          property: connectionString
+      - key: BOT_TOKEN
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ADMIN_TELEGRAM_ID
+        value: "473294026"
+
+databases:
+  - name: happysnack-db
+    databaseName: happysnack
+    user: happysnack
+    region: frankfurt
+    plan: free

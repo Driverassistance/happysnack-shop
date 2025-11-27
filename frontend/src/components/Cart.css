@@ -1,0 +1,140 @@
+.cart {
+    padding-bottom: 20px;
+}
+
+.cart h2 {
+    margin-bottom: 20px;
+}
+
+.empty-cart {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.empty-icon {
+    font-size: 5rem;
+    margin-bottom: 20px;
+}
+
+.empty-cart h2 {
+    margin-bottom: 10px;
+}
+
+.empty-cart p {
+    color: #666;
+    margin-bottom: 30px;
+}
+
+.cart-items {
+    margin-bottom: 20px;
+}
+
+.cart-item {
+    background: white;
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.item-info h3 {
+    font-size: 1rem;
+    margin-bottom: 5px;
+}
+
+.item-price {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.item-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-top: 10px;
+}
+
+.quantity-control {
+    display: flex;
+    align-items: center;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.quantity-control button {
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: white;
+    cursor: pointer;
+    font-size: 1.2rem;
+    color: var(--tg-theme-button-color, #0088cc);
+}
+
+.quantity-control button:active {
+    background: #f0f0f0;
+}
+
+.quantity-control span {
+    min-width: 40px;
+    text-align: center;
+    font-weight: bold;
+}
+
+.item-total {
+    flex: 1;
+    text-align: right;
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: var(--tg-theme-button-color, #0088cc);
+}
+
+.btn-remove {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+
+.cart-summary {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.summary-row.discount {
+    color: #28a745;
+}
+
+.summary-row.total {
+    font-size: 1.3rem;
+    font-weight: bold;
+    padding-top: 10px;
+    border-top: 2px solid #eee;
+    margin-top: 10px;
+}
+
+.client-info {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 15px 0;
+}
+
+.client-info p {
+    margin: 5px 0;
+}
+
+.btn-checkout {
+    width: 100%;
+    padding: 15px;
+    font-size: 1.1rem;
+}

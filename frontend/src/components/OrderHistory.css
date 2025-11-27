@@ -1,0 +1,160 @@
+.order-history h2 {
+    margin-bottom: 20px;
+}
+
+.empty-orders {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.empty-icon {
+    font-size: 5rem;
+    margin-bottom: 20px;
+}
+
+.orders-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.order-card {
+    background: white;
+    border-radius: 12px;
+    padding: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.order-card:active {
+    transform: scale(0.98);
+}
+
+.order-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+}
+
+.order-number {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.order-number strong {
+    font-size: 1.1rem;
+}
+
+.order-date {
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.status-badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    color: white;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.order-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.order-total {
+    font-size: 1.3rem;
+    color: var(--tg-theme-button-color, #0088cc);
+}
+
+.order-items-count {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.order-details {
+    margin-top: 15px;
+}
+
+.order-details h4 {
+    margin: 15px 0 10px 0;
+    font-size: 1rem;
+}
+
+.order-items {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.order-item {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 10px;
+    align-items: center;
+    padding: 8px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.item-name {
+    font-weight: 500;
+}
+
+.item-quantity {
+    color: #666;
+}
+
+.item-price {
+    font-weight: bold;
+    color: var(--tg-theme-button-color, #0088cc);
+}
+
+.order-summary {
+    background: #f8f9fa;
+    padding: 12px;
+    border-radius: 8px;
+    margin: 15px 0;
+}
+
+.summary-line {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.summary-line.discount {
+    color: #28a745;
+}
+
+.summary-line.bonus {
+    color: #ffc107;
+}
+
+.summary-line.total {
+    font-size: 1.2rem;
+    font-weight: bold;
+    padding-top: 8px;
+    border-top: 2px solid #dee2e6;
+    margin-top: 8px;
+}
+
+.delivery-info,
+.order-comment {
+    margin-top: 15px;
+    padding: 12px;
+    background: #e7f3ff;
+    border-radius: 8px;
+}
+
+.delivery-info p,
+.order-comment p {
+    margin: 5px 0 0 0;
+    color: #333;
+}

@@ -1,0 +1,137 @@
+.profile h2 {
+    margin-bottom: 20px;
+}
+
+.profile-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.profile-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.profile-header h3 {
+    margin: 0;
+    font-size: 1.3rem;
+}
+
+.profile-section {
+    margin-bottom: 25px;
+}
+
+.profile-section:last-child {
+    margin-bottom: 0;
+}
+
+.profile-section h4 {
+    margin-bottom: 15px;
+    font-size: 1.1rem;
+    color: #333;
+}
+
+.info-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.info-item .label {
+    color: #666;
+    font-weight: 500;
+}
+
+.info-item .value {
+    font-weight: 600;
+    text-align: right;
+}
+
+.finance-cards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+.finance-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.finance-card.bonus {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.finance-card.credit {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.finance-card.discount {
+    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+}
+
+.finance-card.delay {
+    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+}
+
+.card-icon {
+    font-size: 2rem;
+}
+
+.card-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.card-label {
+    font-size: 0.85rem;
+    opacity: 0.9;
+}
+
+.card-value {
+    font-size: 1.3rem;
+    font-weight: bold;
+}
+
+.card-sublabel {
+    font-size: 0.75rem;
+    opacity: 0.8;
+}
+
+.debt-warning {
+    background: #fff3cd;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 4px solid #ffc107;
+}
+
+.debt-amount {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #dc3545;
+    margin: 10px 0;
+}
+
+.debt-text {
+    color: #856404;
+    margin: 0;
+}

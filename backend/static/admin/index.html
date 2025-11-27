@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HappySnack Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body { background: #f8f9fa; }
+        .sidebar { 
+            min-height: 100vh; 
+            background: #343a40; 
+            color: white;
+            position: fixed;
+            width: 250px;
+        }
+        .sidebar a { 
+            color: #adb5bd; 
+            text-decoration: none; 
+            padding: 10px 20px; 
+            display: block;
+        }
+        .sidebar a:hover, .sidebar a.active { 
+            background: #495057; 
+            color: white;
+        }
+        .main-content { 
+            margin-left: 250px; 
+            padding: 30px;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #0d6efd;
+        }
+        .page-section { display: none; }
+        .page-section.active { display: block; }
+		.conversation-item {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid #0d6efd;
+        }
+        .user-message {
+            background: #e3f2fd;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .ai-response {
+            background: #f1f8e9;
+            padding: 10px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="p-3">
+            <h4><i class="bi bi-shop"></i> HappySnack</h4>
+            <small class="text-muted">Admin Panel</small>
+        </div>
+        <hr>
+        <a href="#dashboard" class="nav-link active" onclick="showPage('dashboard')">
+            <i class="bi bi-speedometer2"></i> Дашборд
+        </a>
+        <a href="#products" class="nav-link" onclick="showPage('products')">
+            <i class="bi bi-box"></i> Товары
+        </a>
+        <a href="#categories" class="nav-link" onclick="showPage('categories')">
+            <i class="bi bi-folder"></i> Категории
+        </a>
+        <a href="#clients" class="nav-link" onclick="showPage('clients')">
+            <i class="bi bi-people"></i> Клиенты
+        </a>
+        <a href="#orders" class="nav-link" onclick="showPage('orders')">
+            <i class="bi bi-cart"></i> Заказы
+        </a>
+		<a href="#ai" class="nav-link" onclick="showPage('ai')">
+            <i class="bi bi-robot"></i> AI Агент
+        </a>
+        <a href="#settings" class="nav-link" onclick="showPage('settings')">
+            <i class="bi bi-gear"></i> Настройки
+        </a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- DASHBOARD -->
+        <div id="dashboard" class="page-section active">
+            <h2>📊 Дашборд</h2>
+            <div class="row" id="statsRow">
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="text-muted">Заказов сегодня</div>
+                        <div class="stat-number" id="todayOrders">-</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="text-muted">Выручка сегодня</div>
+                        <div class="stat-number" id="todayRevenue">-</div>
+                        <small class="text-muted">₸</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="text-muted">Заказов за неделю</div>
+                        <div class="stat-number" id="weekOrders">-</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="text-muted">Выручка за неделю</div>
+                        <div class="stat-number" id="weekRevenue">-</div>
+                        <small class="text-muted">₸</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <div class="stat-card">
+                        <h5>⏳ Клиенты на модерации</h5>
+                        <div class="stat-number" id="pendingClients">-</div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="stat-card">
+                        <h5>⚠️ Низкие остатки</h5>
+                        <div class="stat-number" id="lowStock">-</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PRODUCTS -->
+        <div id="products" class="page-section">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>📦 Товары</h2>
+    <div>
+        <button class="btn btn-success me-2" onclick="downloadTemplate()">
+            <i class="bi bi-download"></i> Скачать шаблон
+        </button>
+        <button class="btn btn-info me-2" onclick="document.getElementById('importFile').click()">
+            <i class="bi bi-upload"></i> Импорт прайса
+        </button>
+        <button class="btn btn-outline-secondary me-2" id="viewToggleBtn" onclick="toggleProductsView()">
+            <i class="bi bi-grid-3x3"></i> Плитка
+        </button>
+        <button class="btn btn-primary" onclick="showAddProductModal()">
+            <i class="bi bi-plus-circle"></i> Добавить товар
+        </button>
+        <input type="file" id="importFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="importProducts(this.files[0])">
+    </div>
+</div>
+            
+            <div class="stat-card">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <input type="text" class="form-control" id="searchProduct" 
+                               placeholder="Поиск товара..." onkeyup="loadProducts()">
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="filterCategory" onchange="loadProducts()">
+                            <option value="">Все категории</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="filterActive" onchange="loadProducts()">
+                            <option value="">Все</option>
+                            <option value="true">Активные</option>
+                            <option value="false">Неактивные</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Таблица товаров -->
+<div id="productsTableView">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Название</th>
+                <th>Категория</th>
+                <th>Цена</th>
+                <th>Остаток</th>
+                <th>Статус</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody id="productsTable">
+            <tr><td colspan="7" class="text-center">Загрузка...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Плитка товаров -->
+<div id="productsGridView" style="display:none;">
+    <div class="row" id="productsGrid">
+        <div class="col-12 text-center">Загрузка...</div>
+    </div>
+</div>
+            </div>
+        </div>
+
+        <!-- CATEGORIES -->
+        <div id="categories" class="page-section">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>📁 Категории</h2>
+                <button class="btn btn-primary" onclick="showAddCategoryModal()">
+                    <i class="bi bi-plus-circle"></i> Добавить категорию
+                </button>
+            </div>
+            
+            <div class="stat-card">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Название</th>
+                            <th>Сортировка</th>
+                            <th>Статус</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody id="categoriesTable">
+                        <tr><td colspan="5" class="text-center">Загрузка...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- CLIENTS -->
+        <div id="clients" class="page-section">
+            <h2>👥 Клиенты</h2>
+            
+            <div class="stat-card">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <input type="text" class="form-control" id="searchClient" 
+                               placeholder="Поиск клиента..." onkeyup="loadClients()">
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="filterStatus" onchange="loadClients()">
+                            <option value="">Все статусы</option>
+                            <option value="pending">На модерации</option>
+                            <option value="active">Активные</option>
+                            <option value="blocked">Заблокированные</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Компания</th>
+                            <th>БИН</th>
+                            <th>Бонусы</th>
+                            <th>Долг</th>
+                            <th>Статус</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clientsTable">
+                        <tr><td colspan="7" class="text-center">Загрузка...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ORDERS -->
+        <div id="orders" class="page-section">
+            <h2>🛒 Заказы</h2>
+            
+            <div class="stat-card">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <select class="form-select" id="filterOrderStatus" onchange="loadOrders()">
+                            <option value="">Все заказы</option>
+                            <option value="new">Новые</option>
+                            <option value="confirmed">Подтвержденные</option>
+                            <option value="preparing">Собираются</option>
+                            <option value="delivering">В доставке</option>
+                            <option value="delivered">Доставленные</option>
+                            <option value="cancelled">Отмененные</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Номер</th>
+                            <th>Клиент</th>
+                            <th>Сумма</th>
+                            <th>Статус</th>
+                            <th>Дата</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ordersTable">
+                        <tr><td colspan="6" class="text-center">Загрузка...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- SETTINGS -->
+        <div id="settings" class="page-section">
+            <h2>⚙️ Настройки системы</h2>
+            
+            <div class="stat-card">
+                <h5>💰 Бонусы</h5>
+                <div id="bonusSettings"></div>
+            </div>
+
+            <div class="stat-card mt-3">
+                <h5>💳 Финансы</h5>
+                <div id="financeSettings"></div>
+            </div>
+
+            <div class="stat-card mt-3">
+                <h5>🚚 Доставка</h5>
+                <div id="deliverySettings"></div>
+            </div>
+
+            <div class="stat-card mt-3">
+                <h5>🎁 Скидки</h5>
+                <div id="discountSettings"></div>
+            </div>
+        </div>
+		<!-- AI AGENT - ДОБАВЬ СЮДА -->
+        <div id="ai" class="page-section">
+            <h2>🤖 AI Sales Assistant</h2>
+            
+            <!-- Статистика -->
+            <div class="row" id="aiStatsRow">
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="text-muted">Всего диалогов</div>
+                        <div class="stat-number" id="aiTotalConversations">-</div>
+                        <small class="text-muted">за 7 дней</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="text-muted">Проактивных сообщений</div>
+                        <div class="stat-number" id="aiTotalProactive">-</div>
+                        <small class="text-muted">за 7 дней</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="text-muted">Отклик</div>
+                        <div class="stat-number" id="aiResponseRate">-</div>
+                        <small class="text-muted">%</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="text-muted">Конверсия в заказ</div>
+                        <div class="stat-number" id="aiOrderRate">-</div>
+                        <small class="text-muted">%</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Вкладки -->
+            <ul class="nav nav-tabs mt-4" role="tablist">
+    <li class="nav-item">
+        <a class="nav-link active" data-bs-toggle="tab" href="#aiConversations">💬 Диалоги</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" data-bs-toggle="tab" href="#aiProactive">📨 Проактивные сообщения</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" data-bs-toggle="tab" href="#aiSettings">⚙️ Настройки</a>
+    </li>
+</ul>
+
+            <div class="tab-content mt-3">
+                <!-- Диалоги -->
+                <div id="aiConversations" class="tab-pane fade show active">
+                    <div class="stat-card">
+                        <div id="aiConversationsList">
+                            <div class="text-center text-muted">Загрузка...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Проактивные сообщения -->
+                <div id="aiProactive" class="tab-pane fade">
+                    <div class="stat-card">
+                        <div id="aiProactiveList">
+                            <div class="text-center text-muted">Загрузка...</div>
+                        </div>
+                    </div>
+                </div>
+				<!-- Настройки AI -->
+                <div id="aiSettings" class="tab-pane fade">
+                    <div class="stat-card">
+                        <h5>⚙️ Управление AI-агентом</h5>
+                        
+                        <form id="aiSettingsForm">
+                            <div class="row">
+                                <!-- Включен/Выключен -->
+                                <div class="col-md-12 mb-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="aiEnabled">
+                                        <label class="form-check-label" for="aiEnabled">
+                                            <strong>Агент включен</strong>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Расписание -->
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">⏰ Время отправки</label>
+                                    <input type="time" class="form-control" id="sendTime">
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">📅 Дни недели</label>
+                                    <select multiple class="form-select" id="sendDays" style="height: 120px;">
+                                        <option value="1">Понедельник</option>
+                                        <option value="2">Вторник</option>
+                                        <option value="3">Среда</option>
+                                        <option value="4">Четверг</option>
+                                        <option value="5">Пятница</option>
+                                        <option value="6">Суббота</option>
+                                        <option value="7">Воскресенье</option>
+                                    </select>
+                                    <small class="text-muted">Удерживай Ctrl для выбора нескольких</small>
+                                </div>
+
+                                <!-- Триггеры -->
+                                <div class="col-md-12">
+                                    <h6 class="mt-3">🎯 Триггеры для отправки</h6>
+                                </div>
+
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">Не заказывал (дней)</label>
+                                    <input type="number" class="form-control" id="triggerDaysNoOrder" min="1" max="90">
+                                </div>
+
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">Много бонусов (₸)</label>
+                                    <input type="number" class="form-control" id="triggerBonusAmount" min="100" step="100">
+                                </div>
+
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">Бонусы сгорают через (дней)</label>
+                                    <input type="number" class="form-control" id="triggerBonusExpiry" min="1" max="30">
+                                </div>
+
+                                <!-- Лимиты -->
+                                <div class="col-md-12">
+                                    <h6 class="mt-3">🚦 Лимиты</h6>
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Максимум сообщений в день</label>
+                                    <input type="number" class="form-control" id="maxMessagesPerDay" min="1" max="100">
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Минимум дней между сообщениями</label>
+                                    <input type="number" class="form-control" id="minDaysBetween" min="1" max="30">
+                                </div>
+
+                                <!-- Агрессивность -->
+                                <div class="col-md-12 mb-3">
+                                    <label class="form-label">🎚️ Агрессивность продаж: <span id="aggressivenessValue">5</span></label>
+                                    <input type="range" class="form-range" id="salesAggressiveness" min="1" max="10" value="5">
+                                    <div class="d-flex justify-content-between">
+                                        <small>Мягко</small>
+                                        <small>Агрессивно</small>
+                                    </div>
+                                </div>
+
+                                <!-- Кнопка сохранения -->
+                                <div class="col-md-12">
+                                    <button type="submit" class="btn btn-primary">💾 Сохранить настройки</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+            </div>
+        </div>
+
+    </div>
+    </div>
+
+    <!-- Модалки и скрипты в следующем сообщении -->
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="admin.js"></script>
+</body>
+</html>
