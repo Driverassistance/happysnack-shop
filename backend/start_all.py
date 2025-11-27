@@ -17,6 +17,14 @@ def run_bot():
     asyncio.run(bot.main())
 
 if __name__ == "__main__":
+    # Инициализируем БД при первом запуске
+    print("🔄 Checking database...")
+    try:
+        from init_db import init_database
+        init_database()
+    except Exception as e:
+        print(f"⚠️ Database init error: {e}")
+    
     # Запускаем API в отдельном процессе
     api_process = Process(target=run_api)
     api_process.start()
