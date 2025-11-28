@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     
     # Admin
     ADMIN_TELEGRAM_IDS: str
-    
+    ADMIN_TELEGRAM_ID: int
     CLAUDE_API_KEY: str = "dummy-key"
     
     class Config:
