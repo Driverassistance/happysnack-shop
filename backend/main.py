@@ -49,13 +49,11 @@ def create_admin_on_startup():
             
             # Создаем нового пользователя
             new_admin = User(
-                telegram_id=ADMIN_ID_TO_CREATE,
-                username="admin",  # Можете поменять на любое имя
-                first_name="Admin",
-                last_name="User",
-                role="admin",     # Устанавливаем роль администратора
-                is_active=True
-            )
+    telegram_id=ADMIN_ID_TO_CREATE,
+    username="admin",
+    role="admin",
+    is_active=True
+)
             db.add(new_admin)
             db.commit()
             
