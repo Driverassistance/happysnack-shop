@@ -47,8 +47,7 @@ def init_database():
         if not existing_cat:
             category = Category(
                 name="Чипсы",
-                description="Популярные снеки"
-            )
+                            )
             db.add(category)
             db.commit()
             print("✅ Test category created!")
