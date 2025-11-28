@@ -47,4 +47,8 @@ async def root():
 
 @app.get("/health")
 async def health():
+<<<<<<< HEAD
     return {"status": "ok"}
+=======
+    return {"status": "ok"}
+>>>>>>> 2af0bb2252754ae4041ac5b41764080a301a1c83
