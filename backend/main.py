@@ -11,44 +11,64 @@ app = FastAPI(
     description="Telegram Mini App для B2B продаж",
     version="1.0.0"
 )
-# +++ НАЧАЛО ВРЕМЕННОГО КОДА ДЛЯ ОТЛАДКИ +++
+# +++ НАЧАЛО ВРЕМЕННОГО КОДА ДЛЯ СОЗДАНИЯ АДМИНА +++
 import logging
 from database import SessionLocal
 from models.user import User
+from config import settings  # Убедимся, что settings импортированы
 
-# Настраиваем логирование, чтобы видеть сообщения в логах Render
+# Настраиваем логирование
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 @app.on_event("startup")
-def print_all_users_on_startup():
-    """Эта функция выполнится один раз при старте сервера."""
-    logger.info("--- [DEBUG] ПРОВЕРКА ПОЛЬЗОВАТЕЛЕЙ В БАЗЕ ДАННЫХ ---")
+def create_admin_on_startup():
+    """
+    Эта функция выполнится один раз при старте сервера.
+    Она создает администратора, если его еще нет.
+    """
+    logger.info("--- [ADMIN CREATION] Проверка наличия администратора ---")
+    
+    # ВАЖНО: Убедитесь, что этот ID совпадает с тем, что в admin.js
+    # Мы берем его из переменных окружения, как на вашем скриншоте.
+    ADMIN_ID_TO_CREATE = settings.ADMIN_TELEGRAM_ID 
+    
+    if not ADMIN_ID_TO_CREATE:
+        logger.error("--- [ADMIN CREATION] Переменная окружения ADMIN_TELEGRAM_ID не найдена!")
+        return
+
     db = SessionLocal()
     try:
-        # Пытаемся получить всех пользователей из таблицы 'users'
-        all_users = db.query(User).all()
+        # Проверяем, существует ли уже пользователь с таким ID
+        existing_user = db.query(User).filter(User.telegram_id == ADMIN_ID_TO_CREATE).first()
         
-        if not all_users:
-            logger.warning("--- [DEBUG] ВНИМАНИЕ: Таблица 'users' пуста! ---")
+        if existing_user:
+            logger.info(f"--- [ADMIN CREATION] Администратор с telegram_id={ADMIN_ID_TO_CREATE} уже существует. Ничего не делаем.")
         else:
-            logger.info(f"--- [DEBUG] Найдено пользователей: {len(all_users)} ---")
-            # Выводим информацию по каждому пользователю
-            for user in all_users:
-                logger.info(
-                    f"--- [DEBUG] Пользователь: id={user.id}, "
-                    f"telegram_id={user.telegram_id}, "
-                    f"username='{user.username}', "
-                    f"role='{user.role}'"
-                )
+            logger.warning(f"--- [ADMIN CREATION] Администратор с telegram_id={ADMIN_ID_TO_CREATE} не найден. Создаем нового.")
+            
+            # Создаем нового пользователя
+            new_admin = User(
+                telegram_id=ADMIN_ID_TO_CREATE,
+                username="admin",  # Можете поменять на любое имя
+                first_name="Admin",
+                last_name="User",
+                role="admin",     # Устанавливаем роль администратора
+                is_active=True
+            )
+            db.add(new_admin)
+            db.commit()
+            
+            logger.info("--- [ADMIN CREATION] УСПЕШНО СОЗДАН НОВЫЙ АДМИНИСТРАТОР! ---")
+
     except Exception as e:
-        # Если произойдет ошибка при подключении или запросе к БД
-        logger.error(f"--- [DEBUG] КРИТИЧЕСКАЯ ОШИБКА при запросе к БД: {e} ---")
+        logger.error(f"--- [ADMIN CREATION] Ошибка при создании администратора: {e} ---")
+        db.rollback() # Откатываем изменения в случае ошибки
     finally:
         db.close()
-    logger.info("--- [DEBUG] ПРОВЕРКА ПОЛЬЗОВАТЕЛЕЙ ЗАВЕРШЕНА ---")
+    logger.info("--- [ADMIN CREATION] Проверка завершена ---")
 
-# +++ КОНЕЦ ВРЕМЕННОГО КОДА ДЛЯ ОТЛАДКИ +++
+# +++ КОНЕЦ ВРЕМЕННОГО КОДА ДЛЯ СОЗДАНИЯ АДМИНА +++
 
 app.add_middleware(
     CORSMiddleware,
