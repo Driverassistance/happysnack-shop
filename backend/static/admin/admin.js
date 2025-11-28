@@ -2,7 +2,9 @@
  * HappySnack Admin Dashboard
  */
 
-const API_URL = 'http://localhost:8000/api';
+const API_URL = window.location.hostname === 'localhost' 
+    ? 'http://localhost:8000'
+    : 'https://happysnack-app.onrender.com';
 const ADMIN_TELEGRAM_ID = '473294026'; // ← ЗАМЕНИ НА СВОЙ!
 
 // Навигация между страницами
