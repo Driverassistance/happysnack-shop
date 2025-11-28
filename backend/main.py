@@ -22,19 +22,7 @@ app.add_middleware(
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-@app.get("/")
-async def root():
-    return {
-        "message": "HappySnack B2B Shop API",
-        "version": "1.0.0",
-        "status": "running"
-    }
-
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
-
-# Подключаем роутеры
+# Подключаем роутеры (ДО if __name__!)
 from api import auth
 from api import products
 from api import cart
@@ -48,3 +36,15 @@ app.include_router(cart.router, prefix="/api/cart", tags=["Cart"])
 app.include_router(orders.router, prefix="/api/orders", tags=["Orders"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(ai_dashboard.router, prefix="/api/ai", tags=["AI Dashboard"])
+
+@app.get("/")
+async def root():
+    return {
+        "message": "HappySnack B2B Shop API",
+        "version": "1.0.0",
+        "status": "running"
+    }
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
