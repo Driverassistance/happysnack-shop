@@ -2,7 +2,9 @@
  * HappySnack Admin Dashboard
  */
 
-const API_URL = 'http://localhost:8000/api';
+const API_URL = window.location.hostname === 'localhost' 
+    ? 'http://localhost:8000'
+    : 'https://happysnack-app.onrender.com';
 const ADMIN_TELEGRAM_ID = '473294026'; // ← ЗАМЕНИ НА СВОЙ!
 
 // Навигация между страницами
@@ -61,7 +63,7 @@ function loadPageData(pageId) {
 
 async function loadDashboardStats() {
     try {
-        const response = await fetch(`${API_URL}/admin/stats/dashboard`, {
+        const response = await fetch(`${API_URL}/api/admin/stats/dashboard`, {
             headers: {
                 'Authorization': ADMIN_TELEGRAM_ID
             }
@@ -94,7 +96,7 @@ async function loadProducts() {
     const active = document.getElementById('filterActive')?.value || '';
     
     try {
-        let url = `${API_URL}/admin/products?limit=100`;
+        let url = `${API_URL}/api/admin/products?limit=100`;
         if (search) url += `&search=${encodeURIComponent(search)}`;
         if (category) url += `&category_id=${category}`;
         if (active) url += `&is_active=${active}`;
@@ -201,7 +203,7 @@ function renderProductsGrid(products) {
 }
 async function loadCategories() {
     try {
-        const response = await fetch(`${API_URL}/products/categories`);
+        const response = await fetch(`${API_URL}/api/products/categories`);
         const categories = await response.json();
         
         const select = document.getElementById('filterCategory');
@@ -223,7 +225,7 @@ async function editProduct(productId) {
     if (!newPrice) return;
     
     try {
-        const response = await fetch(`${API_URL}/admin/products/${productId}`, {
+        const response = await fetch(`${API_URL}/api/admin/products/${productId}`, {
             method: 'PUT',
             headers: {
                 'Authorization': ADMIN_TELEGRAM_ID,
@@ -247,7 +249,7 @@ async function editProduct(productId) {
 
 async function toggleProduct(productId, isActive) {
     try {
-        const response = await fetch(`${API_URL}/admin/products/${productId}`, {
+        const response = await fetch(`${API_URL}/api/admin/products/${productId}`, {
             method: 'PUT',
             headers: {
                 'Authorization': ADMIN_TELEGRAM_ID,
@@ -275,7 +277,7 @@ async function toggleProduct(productId, isActive) {
 
 async function loadCategoriesTable() {
     try {
-        const response = await fetch(`${API_URL}/products/categories`);
+        const response = await fetch(`${API_URL}/api/products/categories`);
         const categories = await response.json();
         
         const tbody = document.getElementById('categoriesTable');
@@ -311,7 +313,7 @@ async function showAddCategoryModal() {
     const sortOrder = prompt('Порядок сортировки:', '0');
     
     try {
-        const response = await fetch(`${API_URL}/admin/categories?name=${encodeURIComponent(name)}&sort_order=${sortOrder}`, {
+        const response = await fetch(`${API_URL}/api/admin/categories?name=${encodeURIComponent(name)}&sort_order=${sortOrder}`, {
             method: 'POST',
             headers: {
                 'Authorization': ADMIN_TELEGRAM_ID
@@ -342,7 +344,7 @@ async function loadClients() {
     const status = document.getElementById('filterStatus')?.value || '';
     
     try {
-        let url = `${API_URL}/admin/clients?limit=100`;
+        let url = `${API_URL}/api/admin/clients?limit=100`;
         if (search) url += `&search=${encodeURIComponent(search)}`;
         if (status) url += `&status=${status}`;
         
@@ -396,7 +398,7 @@ async function approveClient(clientId) {
     if (!confirm('Одобрить регистрацию клиента?')) return;
     
     try {
-        const response = await fetch(`${API_URL}/admin/clients/${clientId}/approve`, {
+        const response = await fetch(`${API_URL}/api/admin/clients/${clientId}/approve`, {
             method: 'POST',
             headers: { 'Authorization': ADMIN_TELEGRAM_ID }
         });
@@ -424,7 +426,7 @@ async function loadOrders() {
     const status = document.getElementById('filterOrderStatus')?.value || '';
     
     try {
-        let url = `${API_URL}/admin/orders?limit=50`;
+        let url = `${API_URL}/api/admin/orders?limit=50`;
         if (status) url += `&status=${status}`;
         
         const response = await fetch(url, {
@@ -487,7 +489,7 @@ async function changeOrderStatus(orderId, currentStatus) {
     if (!confirm(`Изменить статус на "${getOrderStatusText(nextStatus)}"?`)) return;
     
     try {
-        const response = await fetch(`${API_URL}/admin/orders/${orderId}/status?new_status=${nextStatus}`, {
+        const response = await fetch(`${API_URL}/api/admin/orders/${orderId}/status?new_status=${nextStatus}`, {
             method: 'PUT',
             headers: { 'Authorization': ADMIN_TELEGRAM_ID }
         });
@@ -509,7 +511,7 @@ async function changeOrderStatus(orderId, currentStatus) {
 
 async function loadSettings() {
     try {
-        const response = await fetch(`${API_URL}/admin/settings`, {
+        const response = await fetch(`${API_URL}/api/admin/settings`, {
             headers: { 'Authorization': ADMIN_TELEGRAM_ID }
         });
         
@@ -560,7 +562,7 @@ function renderSettings(containerId, settings) {
 
 async function updateSetting(key, value) {
     try {
-        const response = await fetch(`${API_URL}/admin/settings/${key}?value=${encodeURIComponent(value)}`, {
+        const response = await fetch(`${API_URL}/api/admin/settings/${key}?value=${encodeURIComponent(value)}`, {
             method: 'PUT',
             headers: { 'Authorization': ADMIN_TELEGRAM_ID }
         });
@@ -649,7 +651,7 @@ function showError(message) {
 
 async function downloadTemplate() {
     try {
-        const response = await fetch(`${API_URL}/admin/products/template`, {
+        const response = await fetch(`${API_URL}/api/admin/products/template`, {
             headers: { 'Authorization': ADMIN_TELEGRAM_ID }
         });
         
@@ -685,7 +687,7 @@ async function importProducts(file) {
     formData.append('file', file);
     
     try {
-        const response = await fetch(`${API_URL}/admin/products/import`, {
+        const response = await fetch(`${API_URL}/api/admin/products/import`, {
             method: 'POST',
             headers: {
                 'Authorization': ADMIN_TELEGRAM_ID
@@ -755,7 +757,7 @@ function toggleProductsView() {
 
 async function loadAIStats() {
     try {
-        const response = await fetch(`${API_URL}/ai/stats?days=7`, {
+        const response = await fetch(`${API_URL}/api/ai/stats?days=7`, {
             headers: { 'Authorization': ADMIN_TELEGRAM_ID }
         });
         
@@ -775,7 +777,7 @@ async function loadAIStats() {
 
 async function loadAIConversations() {
     try {
-        const response = await fetch(`${API_URL}/ai/conversations?limit=20`, {
+        const response = await fetch(`${API_URL}/api/ai/conversations?limit=20`, {
             headers: { 'Authorization': ADMIN_TELEGRAM_ID }
         });
         
@@ -816,7 +818,7 @@ async function loadAIConversations() {
 
 async function loadAIProactive() {
     try {
-        const response = await fetch(`${API_URL}/ai/proactive?limit=20`, {
+        const response = await fetch(`${API_URL}/api/ai/proactive?limit=20`, {
             headers: { 'Authorization': ADMIN_TELEGRAM_ID }
         });
         
