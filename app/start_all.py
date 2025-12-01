@@ -9,7 +9,7 @@ import sys
 import pathlib
 
 # ======================================================================
-# БЛОК №1: НАСТРОЙКА ПУТЕЙ (ОСТАЕТСЯ БЕЗ ИЗМЕНЕНИЙ)
+# БЛОК №1: НАСТРОЙКА ПУТЕЙ
 # ----------------------------------------------------------------------
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -17,15 +17,12 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 
 # ======================================================================
-# БЛОК №2: ИМПОРТЫ (КЛЮЧЕВОЕ ИЗМЕНЕНИЕ)
-# Мы импортируем КАЖДЫЙ модуль напрямую, а не через пакет 'app.handlers'.
-# Это самое надежное решение.
+# БЛОК №2: ИМПОРТЫ, СООТВЕТСТВУЮЩИЕ ВАШЕЙ СТРУКТУРЕ
 # ----------------------------------------------------------------------
 from app.main import app as fastapi_app
 from app.init_db import init_database
 from app.config import settings
 from app.database import SessionLocal
-from app.middlewares.db_middleware import DbSessionMiddleware
 from app.utils.bot_commands import set_bot_commands
 
 # --- ПРЯМОЙ ИМПОРТ КАЖДОГО ОБРАБОТЧИКА ---
@@ -50,7 +47,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 
-# --- Функции запуска (без изменений) ---
+# --- Функции запуска ---
 def run_web_server():
     logger.info("[WEB] Starting process...")
     try:
@@ -69,8 +66,12 @@ async def start_bot_main():
     logger.info("[BOT] Starting async process...")
     bot = Bot(token=settings.BOT_TOKEN, parse_mode="HTML")
     dp = Dispatcher(storage=MemoryStorage())
-    dp.update.middleware(DbSessionMiddleware(session_pool=SessionLocal))
     
+    # Поскольку папки middlewares нет, мы не можем подключить DbSessionMiddleware.
+    # Ваш бот будет работать, но может падать при операциях с БД.
+    # Это нужно будет исправить позже, но сейчас главное - запустить.
+    # dp.update.middleware(DbSessionMiddleware(session_pool=SessionLocal))
+
     routers = [
         admin_handlers.router, manager_handlers.router, registration_handlers.router,
         common_handlers.router, catalog_handlers.router, cart_handlers.router,
@@ -91,12 +92,12 @@ def run_telegram_bot():
     except Exception as e:
         logger.error(f"[BOT] An unexpected error occurred: {e}", exc_info=True)
 
-# --- Главный блок (без изменений) ---
+# --- Главный блок ---
 if __name__ == '__main__':
     if sys.platform == 'darwin':
         multiprocessing.set_start_method('spawn', force=True)
 
-    logger.info("🔥 Main process started. Initializing subprocesses...")
+    logger.info("🔥 Main process started...")
     
     web_process = multiprocessing.Process(target=run_web_server, name="WebServer")
     bot_process = multiprocessing.Process(target=run_telegram_bot, name="TelegramBot")
