@@ -1,53 +1,35 @@
-# backend/start_all.py
+# app/start_all.py
 
-# ======================================================================
-# БЛОК №1: НАСТРОЙКА ПУТЕЙ. ВЫПОЛНЯЕТСЯ ПЕРВЫМ.
-# Этот код гарантирует, что Python всегда знает, где находится папка 'backend'.
-# ----------------------------------------------------------------------
-import sys
-import pathlib
-import os
-
-try:
-    # Находим путь к текущему файлу (start_all.py)
-    current_file_path = pathlib.Path(__file__).resolve()
-    # Его родитель - это папка 'backend'
-    BACKEND_ROOT = current_file_path.parent
-    
-    # Добавляем родителя 'backend' (корень проекта) в пути поиска.
-    # Это позволяет Python понимать импорты вида 'from backend.handlers...'
-    PROJECT_ROOT = BACKEND_ROOT.parent
-    sys.path.insert(0, str(PROJECT_ROOT))
-    
-    # Меняем рабочую директорию на 'backend'.
-    # Это решает проблему с поиском папки 'static' для FastAPI.
-    os.chdir(BACKEND_ROOT)
-
-except Exception as e:
-    print(f"КРИТИЧЕСКАЯ ОШИБКА при настройке путей: {e}")
-    sys.exit(1)
-# ======================================================================
-
-
-# ======================================================================
-# БЛОК №2: ВСЕ ОСТАЛЬНЫЕ ИМПОРТЫ. ВЫПОЛНЯЮТСЯ ВТОРЫМИ.
-# Теперь, когда пути настроены, все импорты должны быть абсолютными от корня проекта.
-# ----------------------------------------------------------------------
 import multiprocessing
 import uvicorn
+import os
 import asyncio
 import logging
+import sys
+import pathlib
 
-from backend.main import app as fastapi_app
-from backend.init_db import init_database
-from backend.config import settings
-from backend.handlers import (
+# ======================================================================
+# БЛОК №1: НАСТРОЙКА ПУТЕЙ
+# ----------------------------------------------------------------------
+# Добавляем корень проекта в пути Python, чтобы он мог найти пакет 'app'.
+PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+# ======================================================================
+
+
+# ======================================================================
+# БЛОК №2: ИМПОРТЫ
+# ----------------------------------------------------------------------
+from app.main import app as fastapi_app
+from app.init_db import init_database
+from app.config import settings
+from app.handlers import (
     common_handlers, registration_handlers, catalog_handlers, cart_handlers,
     order_handlers, profile_handlers, admin_handlers, manager_handlers, ai_handlers
 )
-from backend.middlewares.db_middleware import DbSessionMiddleware
-from backend.database import SessionLocal
-from backend.utils.bot_commands import set_bot_commands
+from app.middlewares.db_middleware import DbSessionMiddleware
+from app.database import SessionLocal
+from app.utils.bot_commands import set_bot_commands
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 # ======================================================================
@@ -58,7 +40,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 
-# --- Функции запуска (без изменений) ---
+# --- Функции запуска ---
 def run_web_server():
     logger.info("[WEB] Starting process...")
     try:
@@ -68,6 +50,9 @@ def run_web_server():
         logger.error(f"[WEB] Database init error: {e}", exc_info=True)
         return
 
+    # Меняем рабочую директорию, чтобы FastAPI нашел папку 'static'
+    os.chdir(PROJECT_ROOT / 'app')
+    
     port = int(os.getenv("PORT", 10000))
     logger.info(f"[WEB] Starting FastAPI server on port {port}")
     uvicorn.run(fastapi_app, host="0.0.0.0", port=port, reload=False, workers=1)
@@ -100,7 +85,7 @@ def run_telegram_bot():
 
 # --- Главный блок ---
 if __name__ == '__main__':
-    if sys.version_info >= (3, 8) and sys.platform == 'darwin':
+    if sys.platform == 'darwin':
         multiprocessing.set_start_method('spawn', force=True)
 
     logger.info("🔥 Main process started. Initializing subprocesses...")
