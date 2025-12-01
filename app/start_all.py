@@ -9,27 +9,37 @@ import sys
 import pathlib
 
 # ======================================================================
-# БЛОК №1: НАСТРОЙКА ПУТЕЙ
+# БЛОК №1: НАСТРОЙКА ПУТЕЙ (ОСТАЕТСЯ БЕЗ ИЗМЕНЕНИЙ)
 # ----------------------------------------------------------------------
-# Добавляем корень проекта в пути Python, чтобы он мог найти пакет 'app'.
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 # ======================================================================
 
 
 # ======================================================================
-# БЛОК №2: ИМПОРТЫ
+# БЛОК №2: ИМПОРТЫ (КЛЮЧЕВОЕ ИЗМЕНЕНИЕ)
+# Мы импортируем КАЖДЫЙ модуль напрямую, а не через пакет 'app.handlers'.
+# Это самое надежное решение.
 # ----------------------------------------------------------------------
 from app.main import app as fastapi_app
 from app.init_db import init_database
 from app.config import settings
-from app.handlers import (
-    common_handlers, registration_handlers, catalog_handlers, cart_handlers,
-    order_handlers, profile_handlers, admin_handlers, manager_handlers, ai_handlers
-)
-from app.middlewares.db_middleware import DbSessionMiddleware
 from app.database import SessionLocal
+from app.middlewares.db_middleware import DbSessionMiddleware
 from app.utils.bot_commands import set_bot_commands
+
+# --- ПРЯМОЙ ИМПОРТ КАЖДОГО ОБРАБОТЧИКА ---
+from app.handlers import common_handlers
+from app.handlers import registration_handlers
+from app.handlers import catalog_handlers
+from app.handlers import cart_handlers
+from app.handlers import order_handlers
+from app.handlers import profile_handlers
+from app.handlers import admin_handlers
+from app.handlers import manager_handlers
+from app.handlers import ai_handlers
+# -----------------------------------------
+
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 # ======================================================================
@@ -40,7 +50,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 
-# --- Функции запуска ---
+# --- Функции запуска (без изменений) ---
 def run_web_server():
     logger.info("[WEB] Starting process...")
     try:
@@ -50,9 +60,7 @@ def run_web_server():
         logger.error(f"[WEB] Database init error: {e}", exc_info=True)
         return
 
-    # Меняем рабочую директорию, чтобы FastAPI нашел папку 'static'
     os.chdir(PROJECT_ROOT / 'app')
-    
     port = int(os.getenv("PORT", 10000))
     logger.info(f"[WEB] Starting FastAPI server on port {port}")
     uvicorn.run(fastapi_app, host="0.0.0.0", port=port, reload=False, workers=1)
@@ -83,7 +91,7 @@ def run_telegram_bot():
     except Exception as e:
         logger.error(f"[BOT] An unexpected error occurred: {e}", exc_info=True)
 
-# --- Главный блок ---
+# --- Главный блок (без изменений) ---
 if __name__ == '__main__':
     if sys.platform == 'darwin':
         multiprocessing.set_start_method('spawn', force=True)
