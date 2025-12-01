@@ -23,26 +23,24 @@ async def start_bot_main():
     """Основная асинхронная функция для запуска бота."""
     from aiogram import Bot, Dispatcher
     from aiogram.fsm.storage.memory import MemoryStorage
-    from config import settings
     
-    # +++ НАЧАЛО ИЗМЕНЕНИЙ: ДОБАВЛЕНЫ ИМПОРТЫ И РЕГИСТРАЦИЯ +++
+    # +++ НАЧАЛО ИЗМЕНЕНИЙ: ИСПОЛЬЗУЕМ АБСОЛЮТНЫЕ ИМПОРТЫ +++
 
-    # 1. Импортируем все необходимые обработчики из вашей папки 'handlers'
-    #    и другие важные компоненты.
-    # 1. Импортируем каждый модуль обработчика НАПРЯМУЮ из папки 'handlers'
-    from handlers import common_handlers
-    from handlers import registration_handlers
-    from handlers import catalog_handlers
-    from handlers import cart_handlers
-    from handlers import order_handlers
-    from handlers import profile_handlers
-    from handlers import admin_handlers
-    from handlers import manager_handlers
-    from handlers import ai_handlers
-
-    from middlewares.db_middleware import DbSessionMiddleware
-    from database import SessionLocal
-    from utils.bot_commands import set_bot_commands
+    # 1. Импортируем все, используя полный путь от корня 'backend'
+    from backend.config import settings
+    from backend.handlers import common_handlers
+    from backend.handlers import registration_handlers
+    from backend.handlers import catalog_handlers
+    from backend.handlers import cart_handlers
+    from backend.handlers import order_handlers
+    from backend.handlers import profile_handlers
+    from backend.handlers import admin_handlers
+    from backend.handlers import manager_handlers
+    from backend.handlers import ai_handlers
+    
+    from backend.middlewares.db_middleware import DbSessionMiddleware
+    from backend.database import SessionLocal
+    from backend.utils.bot_commands import set_bot_commands
 
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
@@ -52,12 +50,8 @@ async def start_bot_main():
     storage = MemoryStorage()
     dp = Dispatcher(storage=storage)
 
-    # 2. Подключаем middleware для работы с базой данных в каждом хендлере.
-    #    Это позволяет не передавать сессию БД в каждую функцию вручную.
     dp.update.middleware(DbSessionMiddleware(session_pool=SessionLocal))
 
-    # 3. Регистрируем все роутеры (обработчики) в правильном порядке.
-    #    Порядок важен: сначала более специфичные, потом общие.
     logger.info("Including routers...")
     dp.include_router(admin_handlers.router)
     dp.include_router(manager_handlers.router)
@@ -67,10 +61,9 @@ async def start_bot_main():
     dp.include_router(cart_handlers.router)
     dp.include_router(order_handlers.router)
     dp.include_router(profile_handlers.router)
-    dp.include_router(ai_handlers.router) # Роутер для AI-агента
+    dp.include_router(ai_handlers.router)
     logger.info("All routers included.")
 
-    # 4. Устанавливаем команды, которые будут видны в меню Telegram (/start, /help и т.д.).
     await set_bot_commands(bot)
     
     # +++ КОНЕЦ ИЗМЕНЕНИЙ +++
@@ -78,6 +71,7 @@ async def start_bot_main():
     await bot.delete_webhook(drop_pending_updates=True)
     logger.info("...Webhook deleted. Starting polling...")
     await dp.start_polling(bot)
+
 
 def run_telegram_bot():
     """Обёртка для запуска асинхронной функции бота."""
