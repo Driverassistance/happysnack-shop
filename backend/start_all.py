@@ -29,17 +29,17 @@ async def start_bot_main():
 
     # 1. Импортируем все необходимые обработчики из вашей папки 'handlers'
     #    и другие важные компоненты.
-    from handlers import (
-        common_handlers,
-        registration_handlers,
-        catalog_handlers,
-        cart_handlers,
-        order_handlers,
-        profile_handlers,
-        admin_handlers,
-        manager_handlers,
-        ai_handlers
-    )
+    # 1. Импортируем каждый модуль обработчика НАПРЯМУЮ из папки 'handlers'
+    from handlers import common_handlers
+    from handlers import registration_handlers
+    from handlers import catalog_handlers
+    from handlers import cart_handlers
+    from handlers import order_handlers
+    from handlers import profile_handlers
+    from handlers import admin_handlers
+    from handlers import manager_handlers
+    from handlers import ai_handlers
+
     from middlewares.db_middleware import DbSessionMiddleware
     from database import SessionLocal
     from utils.bot_commands import set_bot_commands
