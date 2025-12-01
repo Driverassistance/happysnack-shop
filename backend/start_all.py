@@ -27,20 +27,20 @@ async def start_bot_main():
     # +++ НАЧАЛО ИЗМЕНЕНИЙ: ИСПОЛЬЗУЕМ АБСОЛЮТНЫЕ ИМПОРТЫ +++
 
     # 1. Импортируем все, используя полный путь от корня 'backend'
-    from backend.config import settings
-    from backend.handlers import common_handlers
-    from backend.handlers import registration_handlers
-    from backend.handlers import catalog_handlers
-    from backend.handlers import cart_handlers
-    from backend.handlers import order_handlers
-    from backend.handlers import profile_handlers
-    from backend.handlers import admin_handlers
-    from backend.handlers import manager_handlers
-    from backend.handlers import ai_handlers
+    from config import settings
+    from handlers import common_handlers
+    from handlers import registration_handlers
+    from handlers import catalog_handlers
+    from handlers import cart_handlers
+    from handlers import order_handlers
+    from handlers import profile_handlers
+    from handlers import admin_handlers
+    from handlers import manager_handlers
+    from handlers import ai_handlers
     
-    from backend.middlewares.db_middleware import DbSessionMiddleware
-    from backend.database import SessionLocal
-    from backend.utils.bot_commands import set_bot_commands
+    from middlewares.db_middleware import DbSessionMiddleware
+    from database import SessionLocal
+    from utils.bot_commands import set_bot_commands
 
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
