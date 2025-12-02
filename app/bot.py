@@ -1476,7 +1476,7 @@ async def callback_admin_settings(callback: types.CallbackQuery):
     await callback.message.answer(
         "⚙️ <b>Настройки системы</b>\n\n"
         "Для управления настройками используйте веб-дашборд:\n"
-        "http://localhost:8000/static/admin/index.html\n\n"
+        f"{settings.API_URL}/static/admin/index.html\n\n"
         "Там вы можете изменить:\n"
         "• Бонусы\n"
         "• Скидки\n"
