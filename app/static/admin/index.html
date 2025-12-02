@@ -242,10 +242,17 @@
         </div>
 
         <!-- CLIENTS -->
-        <div id="clients" class="page-section">
-            <h2>👥 Клиенты</h2>
-            
-            <div class="stat-card">
+        <!-- CLIENTS -->
+<div id="clients" class="page-section">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>👥 Клиенты</h2>
+        <button class="btn btn-success" onclick="showAddClientForm()">
+            <i class="bi bi-plus-circle"></i> Добавить клиента
+        </button>
+    </div>
+    
+    <div id="clientsContent">
+        <div class="stat-card">
                 <div class="row mb-3">
                     <div class="col-md-6">
                         <input type="text" class="form-control" id="searchClient" 
@@ -278,6 +285,7 @@
                     </tbody>
                 </table>
             </div>
+			</div>
         </div>
 
         <!-- ORDERS -->

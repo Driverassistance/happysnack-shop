@@ -413,25 +413,61 @@ async function loadClients() {
         if (status) endpoint += `&status=${status}`;
         
         const clients = await apiFetch(endpoint);
-        const tbody = document.getElementById('clientsTable');
-        if (clients.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center">Клиенты не найдены</td></tr>';
-            return;
-        }
-        tbody.innerHTML = clients.map(c => `
-            <tr>
-                <td>${c.id}</td>
-                <td><strong>${c.company_name}</strong></td>
-                <td>${c.bin_iin || '-'}</td>
-                <td>${formatMoney(c.bonus_balance)} ₸</td>
-                <td>${formatMoney(c.debt)} ₸</td>
-                <td><span class="badge ${getStatusBadge(c.status)}">${getStatusText(c.status)}</span></td>
-                <td>
-                    ${c.status === 'pending' ? `<button class="btn btn-sm btn-success" onclick="approveClient(${c.id})"><i class="bi bi-check"></i> Одобрить</button>` : ''}
-                    <button class="btn btn-sm btn-primary" onclick="editClient(${c.id})"><i class="bi bi-pencil"></i></button>
-                </td>
-            </tr>
-        `).join('');
+        
+        // Рендерим всю секцию клиентов с кнопкой
+        const clientsHtml = `
+            <div class="stat-card">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <input type="text" class="form-control" id="searchClient" 
+                               placeholder="Поиск клиента..." onkeyup="loadClients()" value="${search}">
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="filterStatus" onchange="loadClients()">
+                            <option value="" ${status === '' ? 'selected' : ''}>Все статусы</option>
+                            <option value="pending" ${status === 'pending' ? 'selected' : ''}>На модерации</option>
+                            <option value="active" ${status === 'active' ? 'selected' : ''}>Активные</option>
+                            <option value="blocked" ${status === 'blocked' ? 'selected' : ''}>Заблокированные</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Компания</th>
+                            <th>БИН</th>
+                            <th>Бонусы</th>
+                            <th>Долг</th>
+                            <th>Статус</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${clients.length === 0 
+                            ? '<tr><td colspan="7" class="text-center">Клиенты не найдены</td></tr>'
+                            : clients.map(c => `
+                                <tr>
+                                    <td>${c.id}</td>
+                                    <td><strong>${c.company_name}</strong></td>
+                                    <td>${c.bin_iin || '-'}</td>
+                                    <td>${formatMoney(c.bonus_balance)} ₸</td>
+                                    <td>${formatMoney(c.debt)} ₸</td>
+                                    <td><span class="badge ${getStatusBadge(c.status)}">${getStatusText(c.status)}</span></td>
+                                    <td>
+                                        ${c.status === 'pending' ? `<button class="btn btn-sm btn-success" onclick="approveClient(${c.id})"><i class="bi bi-check"></i> Одобрить</button>` : ''}
+                                        <button class="btn btn-sm btn-primary" onclick="editClient(${c.id})"><i class="bi bi-pencil"></i></button>
+                                    </td>
+                                </tr>
+                            `).join('')
+                        }
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        document.getElementById('clientsContent').innerHTML = clientsHtml;
     } catch (error) {
         showError(`Ошибка загрузки клиентов: ${error.message}`);
     }
