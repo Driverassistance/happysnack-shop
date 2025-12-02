@@ -4,12 +4,10 @@ services:
     env: python
     region: frankfurt
     plan: free
-    rootDir: backend
+    rootDir: app  # ← ИЗМЕНЕНО!
     buildCommand: pip install -r requirements.txt
     startCommand: python start_all.py
     envVars:
-      - key: PYTHON_VERSION
-        value: "3.11.0"
       - key: DATABASE_URL
         fromDatabase:
           name: happysnack-db
@@ -20,6 +18,14 @@ services:
         sync: false
       - key: ADMIN_TELEGRAM_ID
         value: "473294026"
+      - key: ADMIN_TELEGRAM_IDS
+        value: "473294026"
+      - key: SECRET_KEY
+        value: "happysnack_secret_2024"
+      - key: WEBAPP_URL
+        value: "https://happysnack-app.onrender.com"
+      - key: CLAUDE_API_KEY
+        sync: false
       - key: PORT
         value: "10000"
 
