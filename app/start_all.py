@@ -1,6 +1,3 @@
-"""
-Запуск только API для Render
-"""
 import os
 import uvicorn
 
@@ -17,14 +14,3 @@ if __name__ == "__main__":
     
     from main import app
     uvicorn.run(app, host="0.0.0.0", port=port)
-```
-
-**Убираем `app.` из всех импортов внутри start_all.py!**
-
----
-
-## 📝 ИТОГО В RENDER ПОСТАВЬ:
-```
-Root Directory: app
-Build Command: pip install -r requirements.txt
-Start Command: python start_all.py
