@@ -298,7 +298,111 @@ function editCategory(categoryId) {
 // ============================================
 // CLIENTS - Клиенты
 // ============================================
+// Показываем форму добавления клиента
+function showAddClientForm() {
+    const formHtml = `
+        <div class="card mb-3">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">➕ Добавить нового клиента</h5>
+            </div>
+            <div class="card-body">
+                <form id="addClientForm">
+                    <div class="mb-3">
+                        <label class="form-label">Название компании *</label>
+                        <input type="text" class="form-control" id="companyName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">БИН/ИИН *</label>
+                        <input type="text" class="form-control" id="binIin" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Адрес *</label>
+                        <input type="text" class="form-control" id="address" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Телефон *</label>
+                        <input type="text" class="form-control" id="phone" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Telegram ID *</label>
+                        <input type="number" class="form-control" id="telegramId" required>
+                        <small class="text-muted">ID пользователя в Telegram (например: 123456789)</small>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Кредитный лимит (₸)</label>
+                            <input type="number" class="form-control" id="creditLimit" value="500000">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Отсрочка (дней)</label>
+                            <input type="number" class="form-control" id="paymentDelay" value="14">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Скидка (%)</label>
+                            <input type="number" class="form-control" id="discount" value="0" min="0" max="100">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Статус *</label>
+                        <select class="form-control" id="status">
+                            <option value="pending">Ожидает одобрения</option>
+                            <option value="active" selected>Активен</option>
+                            <option value="blocked">Заблокирован</option>
+                        </select>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-success">💾 Создать клиента</button>
+                        <button type="button" class="btn btn-secondary" onclick="loadClients()">❌ Отмена</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('clientsContent').innerHTML = formHtml;
+    
+    document.getElementById('addClientForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await createClient();
+    });
+}
 
+// Создаём клиента
+async function createClient() {
+    const data = {
+        company_name: document.getElementById('companyName').value,
+        bin_iin: document.getElementById('binIin').value,
+        address: document.getElementById('address').value,
+        phone: document.getElementById('phone').value,
+        telegram_id: parseInt(document.getElementById('telegramId').value),
+        credit_limit: parseFloat(document.getElementById('creditLimit').value),
+        payment_delay_days: parseInt(document.getElementById('paymentDelay').value),
+        discount_percent: parseFloat(document.getElementById('discount').value),
+        status: document.getElementById('status').value
+    };
+    
+    try {
+        const response = await fetch(`${API_URL}/api/admin/clients/create`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Admin-Telegram-ID': ADMIN_TELEGRAM_ID
+            },
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            showNotification('✅ Клиент успешно создан!', 'success');
+            loadClients();
+        } else {
+            const error = await response.json();
+            showNotification(`❌ Ошибка: ${error.detail}`, 'danger');
+        }
+    } catch (error) {
+        console.error('Error creating client:', error);
+        showNotification('❌ Ошибка создания клиента', 'danger');
+    }
+}
 async function loadClients() {
     const search = document.getElementById('searchClient')?.value || '';
     const status = document.getElementById('filterStatus')?.value || '';

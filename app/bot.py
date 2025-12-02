@@ -20,7 +20,11 @@ from aiogram.fsm.state import State, StatesGroup
 # Состояние для AI-чата
 class AIChat(StatesGroup):
     talking = State()
-
+class RegistrationStates(StatesGroup):
+    waiting_for_company_name = State()
+    waiting_for_bin = State()
+    waiting_for_address = State()
+    waiting_for_contact = State()
 print(f"🤖 Sales Assistant initialized: {sales_assistant is not None}")
 if sales_assistant:
     print(f"✅ Claude API Key: {settings.CLAUDE_API_KEY[:20]}...")
@@ -50,8 +54,9 @@ async def cmd_start(message: types.Message):
     ).first()
     
     if not user:
-        # Новый пользователь
+        # Новый пользователь - предлагаем регистрацию
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📝 Зарегистрироваться", callback_data="start_registration")],
             [InlineKeyboardButton(text="ℹ️ О компании", callback_data="about")],
             [InlineKeyboardButton(text="📞 Контакты", callback_data="contacts")]
         ])
@@ -74,7 +79,17 @@ async def cmd_start(message: types.Message):
         client = db.query(Client).filter(Client.user_id == user.id).first()
         
         if user.role == "client":
-            if client.status == "pending":
+            if not client:
+                # Клиента нет - предлагаем регистрацию
+                keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="📝 Зарегистрироваться", callback_data="start_registration")]
+                ])
+                await message.answer(
+                    "❌ Профиль клиента не найден.\n\n"
+                    "Пожалуйста, пройдите регистрацию:",
+                    reply_markup=keyboard
+                )
+            elif client.status == "pending":
                 await message.answer(
                     "⏳ Ваша регистрация на модерации.\n\n"
                     "Мы свяжемся с вами в ближайшее время!"
@@ -92,10 +107,7 @@ async def cmd_start(message: types.Message):
                     f"👋 С возвращением, <b>{client.company_name}</b>!\n\n"
                     f"💰 Ваш бонусный баланс: <b>{client.bonus_balance:.0f}₸</b>\n"
                     f"💳 Доступный кредит: <b>{(client.credit_limit - client.debt):.0f}₸</b>\n\n"
-                    f"🚀 <b>Интернет-магазин скоро откроется!</b>\n\n"
-                    "Используйте команды:\n"
-                    "/orders - Мои заказы\n"
-                    "/profile - Мой профиль",
+                    f"🤖 Напишите мне что-нибудь и я помогу с заказом!",
                     parse_mode="HTML",
                     reply_markup=keyboard
                 )
@@ -1557,6 +1569,195 @@ async def callback_back_to_main(callback: types.CallbackQuery):
     await callback.message.delete()
     await cmd_start(callback.message)
     await callback.answer()
+@dp.callback_query(F.data == "start_registration")
+async def start_registration(callback: types.CallbackQuery, state: FSMContext):
+    """Начало регистрации"""
+    await callback.message.answer(
+        "📝 <b>Регистрация нового клиента</b>\n\n"
+        "Введите <b>название вашей компании</b>:",
+        parse_mode="HTML"
+    )
+    await state.set_state(RegistrationStates.waiting_for_company_name)
+    await callback.answer()
+
+@dp.message(RegistrationStates.waiting_for_company_name)
+async def process_company_name(message: types.Message, state: FSMContext):
+    """Получаем название компании"""
+    await state.update_data(company_name=message.text)
+    
+    await message.answer(
+        "📋 Отлично!\n\n"
+        "Теперь введите <b>БИН/ИИН</b> вашей компании:",
+        parse_mode="HTML"
+    )
+    await state.set_state(RegistrationStates.waiting_for_bin)
+
+@dp.message(RegistrationStates.waiting_for_bin)
+async def process_bin(message: types.Message, state: FSMContext):
+    """Получаем БИН"""
+    await state.update_data(bin_iin=message.text)
+    
+    await message.answer(
+        "📍 Хорошо!\n\n"
+        "Введите <b>адрес</b> вашего магазина/склада:",
+        parse_mode="HTML"
+    )
+    await state.set_state(RegistrationStates.waiting_for_address)
+
+@dp.message(RegistrationStates.waiting_for_address)
+async def process_address(message: types.Message, state: FSMContext):
+    """Получаем адрес"""
+    await state.update_data(address=message.text)
+    
+    await message.answer(
+        "📱 Почти готово!\n\n"
+        "Введите <b>контактный телефон</b>:",
+        parse_mode="HTML"
+    )
+    await state.set_state(RegistrationStates.waiting_for_contact)
+
+@dp.message(RegistrationStates.waiting_for_contact)
+async def process_contact(message: types.Message, state: FSMContext):
+    """Завершаем регистрацию"""
+    db = SessionLocal()
+    data = await state.get_data()
+    
+    try:
+        # Создаём пользователя
+        user = User(
+            telegram_id=message.from_user.id,
+            username=message.from_user.username,
+            role="client",
+            is_active=True
+        )
+        db.add(user)
+        db.flush()
+        
+        # Создаём клиента
+        client = Client(
+            user_id=user.id,
+            company_name=data['company_name'],
+            bin_iin=data['bin_iin'],
+            address=data['address'],
+            phone=message.text,
+            status="pending",
+            credit_limit=500000.0,
+            payment_delay_days=14,
+            discount_percent=0.0,
+            bonus_balance=0.0,
+            debt=0.0
+        )
+        db.add(client)
+        db.commit()
+        
+        await state.clear()
+        
+        await message.answer(
+            "✅ <b>Регистрация успешно завершена!</b>\n\n"
+            "⏳ Ваша заявка отправлена на рассмотрение.\n\n"
+            "Мы проверим данные и свяжемся с вами в течение 24 часов.\n\n"
+            "Спасибо за интерес к HappySnack! 🎉",
+            parse_mode="HTML"
+        )
+        
+        # Уведомляем админов
+        for admin_id in settings.admin_ids:
+            try:
+                await bot.send_message(
+                    admin_id,
+                    f"🆕 <b>Новая заявка на регистрацию!</b>\n\n"
+                    f"Компания: {data['company_name']}\n"
+                    f"БИН: {data['bin_iin']}\n"
+                    f"Адрес: {data['address']}\n"
+                    f"Телефон: {message.text}\n"
+                    f"Telegram: @{message.from_user.username or 'нет username'}",
+                    parse_mode="HTML"
+                )
+            except Exception as e:
+                logger.error(f"Failed to notify admin {admin_id}: {e}")
+                
+    except Exception as e:
+        logger.error(f"Registration error: {e}")
+        await message.answer(
+            "❌ Произошла ошибка при регистрации.\n\n"
+            "Попробуйте позже или свяжитесь с нами:\n"
+            "📞 +7 XXX XXX XX XX"
+        )
+        await state.clear()
+    finally:
+        db.close()
+@dp.message(F.text, ~F.text.startswith('/'))
+async def handle_text_message(message: types.Message):
+    """
+    Обрабатываем все текстовые сообщения через AI
+    """
+    db = SessionLocal()
+    
+    try:
+        user = db.query(User).filter(
+            User.telegram_id == message.from_user.id
+        ).first()
+        
+        if not user:
+            await message.answer(
+                "❌ Вы не зарегистрированы.\n"
+                "Используйте /start для начала."
+            )
+            return
+        
+        # Админы и менеджеры не используют AI для текста
+        if user.role in ["admin", "manager"]:
+            return
+        
+        client = db.query(Client).filter(Client.user_id == user.id).first()
+        
+        if not client:
+            await message.answer(
+                "❌ Профиль клиента не найден.\n"
+                "Используйте /start для регистрации."
+            )
+            return
+        
+        if client.status != "active":
+            await message.answer(
+                "⏳ Ваш аккаунт ожидает одобрения администратором."
+            )
+            return
+        
+        # Показываем что бот печатает
+        await bot.send_chat_action(message.chat.id, "typing")
+        
+        # Отправляем в AI
+        try:
+            response = await sales_assistant.handle_message(
+                message.text,
+                client.id,
+                db
+            )
+            
+            # Логируем диалог
+            from models.ai_log import AIConversation
+            conversation = AIConversation(
+                client_id=client.id,
+                user_message=message.text,
+                ai_response=response
+            )
+            db.add(conversation)
+            db.commit()
+            
+            await message.answer(response, parse_mode="HTML")
+            
+        except Exception as e:
+            logger.error(f"AI error: {e}")
+            await message.answer(
+                "🤖 Извините, временные технические проблемы.\n"
+                "Попробуйте позже или свяжитесь с менеджером:\n"
+                "📞 +7 XXX XXX XX XX"
+            )
+            
+    finally:
+        db.close()        
+    
 async def main():
     """Запуск бота"""
     logger.info("🤖 Бот запущен!")
