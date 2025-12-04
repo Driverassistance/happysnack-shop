@@ -722,9 +722,8 @@ async def callback_approve_client_with_bonus(callback: types.CallbackQuery):
             client_id=client.id,
             type="earned",
             amount=5000.0,
-            description="🎁 Welcome бонус за регистрацию",
-            balance_after=5000.0
-        )
+            description="🎁 Welcome бонус за регистрацию"
+                    )
         db.add(bonus_transaction)
         
         # Обновляем метрики
