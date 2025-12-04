@@ -1032,7 +1032,7 @@ async def callback_profile(callback: types.CallbackQuery):
             f"🏢 Компания: <b>{client.company_name}</b>\n"
             f"📋 БИН: {client.bin_iin}\n"
             f"📍 Адрес: {client.address}\n"
-            f"📞 Телефон: {client.phone}\n\n"
+            f"📞 Телефон: {client.contact_phone}\n\n"
             f"💰 <b>Финансы:</b>\n"
             f"• Бонусный баланс: <b>{client.bonus_balance:,.0f}₸</b>\n"
             f"• Кредитный лимит: {client.credit_limit:,.0f}₸\n"
