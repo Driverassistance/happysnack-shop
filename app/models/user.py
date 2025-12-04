@@ -37,6 +37,7 @@ class Client(Base):
     company_name = Column(String, nullable=False)
     address = Column(String)
     bin_iin = Column(String)
+    contact_phone = Column(String)
     manager_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     status = Column(String, default="pending")  # pending, active, blocked
     discount_percent = Column(Float, default=0.0)

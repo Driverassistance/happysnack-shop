@@ -598,7 +598,7 @@ async def process_contact(message: types.Message, state: FSMContext):
             company_name=data['company_name'],
             bin_iin=data['bin_iin'],
             address=data['address'],
-            phone=formatted_phone,
+            contact_phone=formatted_phone,
             status="pending",
             credit_limit=500000.0,
             payment_delay_days=14,
