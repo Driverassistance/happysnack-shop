@@ -1,34 +1,38 @@
 """
-Миграция: создание таблиц аналитики
+Миграция: создание таблиц аналитики (ИСПРАВЛЕННАЯ)
 """
 import os
 from sqlalchemy import create_engine, text
 
-# DATABASE_URL из переменной окружения или вставь напрямую
+# ВСТАВЬ СВОЙ DATABASE_URL В КАВЫЧКАХ!
 DATABASE_URL = "postgresql://happysnack:rj8pjdH24fVZLM1SblGbd5nPNWQ1HPzj@dpg-d4k1sps9c44c73elht1g-a.frankfurt-postgres.render.com/happysnack_8l9f"
 
-print("🔄 Начинаем миграцию...")
+print("🔄 Начинаем миграцию (ИСПРАВЛЕННАЯ ВЕРСИЯ)...")
 print(f"📊 Подключение к БД...")
 
 engine = create_engine(DATABASE_URL)
 
 sql = """
--- Таблица событий аналитики
-CREATE TABLE IF NOT EXISTS analytics_events (
+-- Сначала удаляем старую таблицу если была с ошибкой
+DROP TABLE IF EXISTS analytics_events CASCADE;
+DROP TABLE IF EXISTS client_metrics CASCADE;
+
+-- Таблица событий аналитики (ИСПРАВЛЕННАЯ)
+CREATE TABLE analytics_events (
     id SERIAL PRIMARY KEY,
     event_type VARCHAR(50) NOT NULL,
     telegram_id BIGINT NOT NULL,
     username VARCHAR(100),
-    metadata JSONB,
+    event_metadata JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_analytics_event_type ON analytics_events(event_type);
-CREATE INDEX IF NOT EXISTS idx_analytics_telegram_id ON analytics_events(telegram_id);
-CREATE INDEX IF NOT EXISTS idx_analytics_created_at ON analytics_events(created_at);
+CREATE INDEX idx_analytics_event_type ON analytics_events(event_type);
+CREATE INDEX idx_analytics_telegram_id ON analytics_events(telegram_id);
+CREATE INDEX idx_analytics_created_at ON analytics_events(created_at);
 
 -- Таблица метрик клиентов
-CREATE TABLE IF NOT EXISTS client_metrics (
+CREATE TABLE client_metrics (
     id SERIAL PRIMARY KEY,
     client_id INTEGER NOT NULL,
     telegram_id BIGINT NOT NULL,
@@ -49,7 +53,8 @@ CREATE TABLE IF NOT EXISTS client_metrics (
     updated_at TIMESTAMP WITH TIME ZONE
 );
 
-CREATE INDEX IF NOT EXISTS idx_client_metrics_client_id ON client_metrics(client_id);
+CREATE INDEX idx_client_metrics_client_id ON client_metrics(client_id);
+CREATE INDEX idx_client_metrics_telegram_id ON client_metrics(telegram_id);
 """
 
 try:
@@ -81,9 +86,9 @@ try:
             print("  ❌ client_metrics НЕ создана")
             
         print("")
-        print("🎉 Готово! Можно пушить в Railway!")
+        print("🎉 Готово! Теперь замени файлы и пуши в Railway!")
         
 except Exception as e:
     print(f"❌ Ошибка: {e}")
-    print("")
-    print("Проверь DATABASE_URL в скрипте!")
+    import traceback
+    traceback.print_exc()

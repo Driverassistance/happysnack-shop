@@ -614,7 +614,7 @@ async def process_contact(message: types.Message, state: FSMContext):
                 event_type="registration_completed",
                 telegram_id=message.from_user.id,
                 username=message.from_user.username,
-                metadata={
+                event_metadata={
                     "client_id": client.id,
                     "company_name": data['company_name']
                 }
@@ -739,7 +739,7 @@ async def callback_approve_client_with_bonus(callback: types.CallbackQuery):
             analytics_event = AnalyticsEvent(
                 event_type="client_approved",
                 telegram_id=client.user.telegram_id,
-                metadata={"client_id": client.id}
+                event_metadata={"client_id": client.id}
             )
             db.add(analytics_event)
         
@@ -820,7 +820,7 @@ async def handle_text_message(message: types.Message, state: FSMContext):
                     event_type="pre_registration_message",
                     telegram_id=message.from_user.id,
                     username=message.from_user.username,
-                    metadata={"message": message.text[:100]}
+                    event_metadata={"message": message.text[:100]}
                 )
                 db.add(analytics_event)
                 db.commit()
