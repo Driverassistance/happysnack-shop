@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#FF6B35">
+    <title>HappySnack - Каталог</title>
+    <link rel="manifest" href="manifest.json">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            padding-bottom: 80px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #FF6B35 0%, #FF8C61 100%);
+            padding: 20px;
+            color: white;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .search-box {
+            background: white;
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+        }
+
+        .search-box input {
+            border: none;
+            outline: none;
+            flex: 1;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .categories {
+            display: flex;
+            overflow-x: auto;
+            padding: 15px;
+            gap: 10px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .categories::-webkit-scrollbar {
+            display: none;
+        }
+
+        .category-chip {
+            background: #f5f5f5;
+            border: 2px solid transparent;
+            border-radius: 20px;
+            padding: 10px 20px;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .category-chip.active {
+            background: #FF6B35;
+            color: white;
+            border-color: #FF6B35;
+        }
+
+        .products {
+            padding: 15px;
+        }
+
+        .product-card {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .product-image {
+            width: 80px;
+            height: 80px;
+            border-radius: 8px;
+            object-fit: cover;
+            background: #f5f5f5;
+            flex-shrink: 0;
+        }
+
+        .product-image.placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+        }
+
+        .product-info {
+            flex: 1;
+        }
+
+        .product-name {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .product-price {
+            font-size: 18px;
+            font-weight: bold;
+            color: #FF6B35;
+            margin-bottom: 5px;
+        }
+
+        .product-stock {
+            font-size: 13px;
+            color: #666;
+        }
+
+        .product-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .qty-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            padding: 5px;
+        }
+
+        .qty-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: #FF6B35;
+            color: white;
+            border-radius: 6px;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .qty-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .qty-display {
+            min-width: 30px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .cart-button {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #FF6B35 0%, #FF8C61 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 18px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(255, 107, 53, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 1000;
+        }
+
+        .cart-button:disabled {
+            background: #ccc;
+            box-shadow: none;
+        }
+
+        .discount-banner {
+            background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%);
+            color: white;
+            padding: 15px 20px;
+            margin: 15px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+        }
+
+        .discount-banner h3 {
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+
+        .discount-banner p {
+            font-size: 14px;
+            opacity: 0.95;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🍿 HappySnack</h1>
+        <div class="search-box">
+            <span style="margin-right: 10px;">🔍</span>
+            <input type="text" id="searchInput" placeholder="Поиск товаров...">
+        </div>
+    </div>
+
+    <div id="discountBanner" class="discount-banner" style="display: none;">
+        <h3>🎉 Специальное предложение!</h3>
+        <p id="discountText"></p>
+    </div>
+
+    <div class="categories" id="categories">
+        <div class="category-chip active" data-category="all">Все товары</div>
+    </div>
+
+    <div class="products" id="products">
+        <div class="loading">Загрузка товаров...</div>
+    </div>
+
+    <button class="cart-button" id="cartButton" disabled>
+        <span id="cartInfo">Корзина пуста</span>
+        <span id="cartTotal">0₸</span>
+    </button>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.ready();
+
+        let products = [];
+        let categories = [];
+        let cart = {};
+        let currentCategory = 'all';
+        let isFirstOrder = false;
+
+        // Загрузка данных
+        async function loadData() {
+            try {
+                // Получаем данные от бота через initDataUnsafe
+                const initData = tg.initDataUnsafe;
+                const userId = initData.user?.id;
+
+                // Запрос к боту за данными
+                const response = await fetch(`/api/catalog?user_id=${userId}`);
+                const data = await response.json();
+
+                products = data.products;
+                categories = data.categories;
+                isFirstOrder = data.is_first_order;
+
+                renderCategories();
+                renderProducts();
+                updateDiscountBanner();
+            } catch (error) {
+                console.error('Ошибка загрузки:', error);
+                document.getElementById('products').innerHTML = 
+                    '<div class="empty-state"><div class="empty-state-icon">❌</div><p>Ошибка загрузки товаров</p></div>';
+            }
+        }
+
+        function renderCategories() {
+            const container = document.getElementById('categories');
+            const allChip = container.querySelector('[data-category="all"]');
+            
+            categories.forEach(cat => {
+                const chip = document.createElement('div');
+                chip.className = 'category-chip';
+                chip.dataset.category = cat.id;
+                chip.textContent = `${cat.icon || '📦'} ${cat.name}`;
+                chip.onclick = () => filterByCategory(cat.id);
+                container.appendChild(chip);
+            });
+        }
+
+        function renderProducts() {
+            const container = document.getElementById('products');
+            const filtered = currentCategory === 'all' 
+                ? products 
+                : products.filter(p => p.category_id === currentCategory);
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><p>Товары не найдены</p></div>';
+                return;
+            }
+
+            container.innerHTML = filtered.map(product => `
+                <div class="product-card">
+                    ${product.photo_url 
+                        ? `<img src="${product.photo_url}" class="product-image" alt="${product.name}">`
+                        : `<div class="product-image placeholder">📦</div>`
+                    }
+                    <div class="product-info">
+                        <div class="product-name">${product.name}</div>
+                        <div class="product-price">${formatPrice(product.price)}₸</div>
+                        <div class="product-stock">Остаток: ${product.stock} шт</div>
+                    </div>
+                    <div class="product-actions">
+                        <div class="qty-control">
+                            <button class="qty-btn" onclick="changeQty(${product.id}, -1)">−</button>
+                            <div class="qty-display" id="qty-${product.id}">0</div>
+                            <button class="qty-btn" onclick="changeQty(${product.id}, 1)">+</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            updateCartDisplay();
+        }
+
+        function filterByCategory(categoryId) {
+            currentCategory = categoryId;
+            document.querySelectorAll('.category-chip').forEach(chip => {
+                chip.classList.toggle('active', chip.dataset.category == categoryId);
+            });
+            renderProducts();
+        }
+
+        function changeQty(productId, delta) {
+            const product = products.find(p => p.id === productId);
+            if (!product) return;
+
+            const current = cart[productId] || 0;
+            const newQty = Math.max(0, Math.min(product.stock, current + delta));
+
+            if (newQty === 0) {
+                delete cart[productId];
+            } else {
+                cart[productId] = newQty;
+            }
+
+            document.getElementById(`qty-${productId}`).textContent = newQty;
+            updateCartDisplay();
+        }
+
+        function updateCartDisplay() {
+            const cartBtn = document.getElementById('cartButton');
+            const cartInfo = document.getElementById('cartInfo');
+            const cartTotal = document.getElementById('cartTotal');
+
+            const itemCount = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
+            const total = Object.entries(cart).reduce((sum, [id, qty]) => {
+                const product = products.find(p => p.id == id);
+                return sum + (product ? product.price * qty : 0);
+            }, 0);
+
+            if (itemCount === 0) {
+                cartBtn.disabled = true;
+                cartInfo.textContent = 'Корзина пуста';
+                cartTotal.textContent = '0₸';
+            } else {
+                cartBtn.disabled = false;
+                cartInfo.textContent = `${itemCount} ${getProductWord(itemCount)}`;
+                
+                let displayTotal = total;
+                if (isFirstOrder) {
+                    const discount = calculateDiscount(total);
+                    displayTotal = total - discount;
+                }
+                
+                cartTotal.textContent = `${formatPrice(displayTotal)}₸`;
+            }
+        }
+
+        function calculateDiscount(total) {
+            if (!isFirstOrder) return 0;
+            if (total >= 50000) return total * 0.20;
+            if (total >= 25000) return total * 0.15;
+            if (total >= 15000) return total * 0.10;
+            return 0;
+        }
+
+        function updateDiscountBanner() {
+            const banner = document.getElementById('discountBanner');
+            const text = document.getElementById('discountText');
+            
+            if (isFirstOrder) {
+                banner.style.display = 'block';
+                text.textContent = 'Первый заказ: скидка 10-20% при заказе от 15,000₸!';
+            }
+        }
+
+        function formatPrice(price) {
+            return new Intl.NumberFormat('ru-RU').format(price);
+        }
+
+        function getProductWord(count) {
+            if (count % 10 === 1 && count % 100 !== 11) return 'товар';
+            if ([2,3,4].includes(count % 10) && ![12,13,14].includes(count % 100)) return 'товара';
+            return 'товаров';
+        }
+
+        // Поиск
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            const filtered = products.filter(p => p.name.toLowerCase().includes(query));
+            // Render filtered products
+        });
+
+        // Кнопка оформления
+        document.getElementById('cartButton').addEventListener('click', () => {
+            // Отправляем данные боту
+            tg.sendData(JSON.stringify({
+                action: 'checkout',
+                cart: cart,
+                total: Object.entries(cart).reduce((sum, [id, qty]) => {
+                    const product = products.find(p => p.id == id);
+                    return sum + (product ? product.price * qty : 0);
+                }, 0)
+            }));
+        });
+
+        // Загрузка при старте
+        loadData();
+    </script>
+</body>
+</html>
