@@ -1,0 +1,14 @@
+
+# WebApp и API
+aiohttp==3.9.1
+aiohttp-cors==0.7.0
+
+# Работа с изображениями
+Pillow==10.1.0
+
+# WebApp и API
+aiohttp==3.9.1
+
+# Работа с изображениями
+Pillow==10.1.0
+aiohttp==3.9.1
