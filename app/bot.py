@@ -1,598 +1,534 @@
 """
-Telegram бот для HappySnack B2B Shop
-ПОЛНАЯ ОБНОВЛЕННАЯ ВЕРСИЯ
-✅ AI работает ДО регистрации (агрессивно продает)
-✅ Welcome бонус 5,000₸
-✅ Валидация телефона и БИН
-✅ Аналитика воронки
-✅ Команда /stats
+HappySnack B2B Telegram Bot
+Обновленная версия с WebApp, рассылками и скидками
 """
 import asyncio
 import logging
-import re  # ← ДОБАВЛЕНО для валидации
-from aiogram import Bot, Dispatcher, types, F
-from aiogram.filters import Command
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from config import settings
-from database import SessionLocal
-from models.user import User, Client
-from models.order import Order
-from models.bonus import BonusTransaction  # ← ДОБАВЛЕНО
-from datetime import datetime
-from sqlalchemy import func
-from ai_agent import sales_assistant
+import os
+import sys
 import json
+from datetime import datetime
+from typing import Optional
+
+from aiogram import Bot, Dispatcher, F, types
+from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    ReplyKeyboardRemove,
+    WebAppInfo
+)
+from sqlalchemy import create_engine, BigInteger, func
+from sqlalchemy.orm import sessionmaker
 
-# ← ДОБАВЛЕНО: импорт моделей аналитики
-try:
-    from models.analytics import AnalyticsEvent, ClientMetrics
-    ANALYTICS_ENABLED = True
-except ImportError:
-    ANALYTICS_ENABLED = False
-    logger.warning("Analytics models not found - analytics disabled")
+# Добавляем путь к модулям
+sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
 
-# Состояние для AI-чата
-class AIChat(StatesGroup):
-    talking = State()
-
-# Состояния для регистрации
-class RegistrationStates(StatesGroup):
-    waiting_for_company_name = State()
-    waiting_for_bin = State()
-    waiting_for_address = State()
-    waiting_for_contact = State()
-
-print(f"🤖 Sales Assistant initialized: {sales_assistant is not None}")
-if sales_assistant:
-    print(f"✅ Claude API Key: {settings.CLAUDE_API_KEY[:20]}...")
-else:
-    print("❌ Sales Assistant is None!")
+from database import Base, SessionLocal
+from models.user import User, Client
+from models.product import Product, Category
+from models.order import Order, OrderItem
+from models.bonus import BonusTransaction
+from models.analytics import AnalyticsEvent, ClientMetrics
 
 # Настройка логирования
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(levelname)s:%(name)s:%(message)s'
+)
 logger = logging.getLogger(__name__)
 
+# Конфигурация
+TOKEN = os.getenv("BOT_TOKEN")
+ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x]
+DATABASE_URL = os.getenv("DATABASE_URL")
+WEBAPP_URL = os.getenv("WEBAPP_URL", "https://your-domain.com")
+ANALYTICS_ENABLED = os.getenv("ANALYTICS_ENABLED", "true").lower() == "true"
+
 # Инициализация бота
-bot = Bot(token=settings.BOT_TOKEN)
-dp = Dispatcher()
-ai_conversations = {}
+bot = Bot(token=TOKEN)
+storage = MemoryStorage()
+dp = Dispatcher(storage=storage)
+
+# Инициализация БД
+engine = create_engine(DATABASE_URL)
+
+# Модель торговых представителей
+from sqlalchemy import Column, Integer, String, Boolean
+from database import Base as DBBase
+
+class SalesRepresentative(DBBase):
+    __tablename__ = "sales_representatives"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    telegram_id = Column(BigInteger, unique=True, nullable=True)
+    phone = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
+
+# AI ассистент
+try:
+    from ai_agent import SalesAssistant
+    sales_assistant = SalesAssistant()
+    logger.info("✅ AI Assistant initialized")
+except Exception as e:
+    logger.warning(f"⚠️ AI Assistant not available: {e}")
+    sales_assistant = None
 
 # ============================================
-# ОСНОВНЫЕ КОМАНДЫ
+# FSM STATES
+# ============================================
+
+class RegistrationStates(StatesGroup):
+    waiting_for_company_name = State()
+    waiting_for_bin_iin = State()
+    waiting_for_address = State()
+    waiting_for_phone = State()
+
+class BroadcastStates(StatesGroup):
+    waiting_for_message = State()
+    waiting_for_photo = State()
+    confirmation = State()
+
+# ============================================
+# АНАЛИТИКА
+# ============================================
+
+def log_analytics_event(event_type: str, telegram_id: int, username: Optional[str] = None, metadata: dict = None):
+    """Логирование события аналитики"""
+    if not ANALYTICS_ENABLED:
+        return
+    
+    db = SessionLocal()
+    try:
+        event = AnalyticsEvent(
+            event_type=event_type,
+            telegram_id=telegram_id,
+            username=username,
+            event_metadata=metadata or {}
+        )
+        db.add(event)
+        db.commit()
+    except Exception as e:
+        logger.error(f"Analytics error: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+# ============================================
+# УТИЛИТЫ
+# ============================================
+
+def validate_bin(bin_iin: str) -> bool:
+    """Валидация БИН/ИИН (12 цифр)"""
+    return bin_iin.isdigit() and len(bin_iin) == 12
+
+def validate_phone(phone: str) -> tuple[bool, str]:
+    """Валидация и форматирование телефона"""
+    cleaned = ''.join(filter(str.isdigit, phone))
+    
+    if cleaned.startswith('8') and len(cleaned) == 11:
+        cleaned = '7' + cleaned[1:]
+    
+    if cleaned.startswith('7') and len(cleaned) == 11:
+        return True, f"+{cleaned}"
+    
+    return False, phone
+
+def calculate_first_order_discount(total: float) -> tuple[float, int]:
+    """Расчет скидки на первый заказ"""
+    if total >= 50000:
+        return total * 0.20, 20
+    elif total >= 25000:
+        return total * 0.15, 15
+    elif total >= 15000:
+        return total * 0.10, 10
+    return 0, 0
+
+# ============================================
+# КЛАВИАТУРЫ
+# ============================================
+
+def get_start_keyboard(is_registered: bool = False):
+    """Главное меню"""
+    if is_registered:
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    text="🛒 Открыть каталог",
+                    web_app=WebAppInfo(url=WEBAPP_URL)
+                )
+            ],
+            [
+                InlineKeyboardButton(text="👤 Профиль", callback_data="profile"),
+                InlineKeyboardButton(text="📋 Мои заказы", callback_data="my_orders")
+            ],
+            [
+                InlineKeyboardButton(text="💎 Мои бонусы", callback_data="my_bonuses"),
+                InlineKeyboardButton(text="📊 Статистика", callback_data="client_stats")
+            ],
+            [InlineKeyboardButton(text="📦 Что мы предлагаем", callback_data="products_info")],
+            [InlineKeyboardButton(text="📞 Связаться с менеджером", callback_data="contact_manager")]
+        ]
+    else:
+        keyboard = [
+            [InlineKeyboardButton(text="✅ Хочу начать работать!", callback_data="start_registration")],
+            [InlineKeyboardButton(text="📦 Что мы предлагаем", callback_data="products_info")],
+            [InlineKeyboardButton(text="💰 Акции и специальные предложения", callback_data="promotions")],
+            [InlineKeyboardButton(text="📞 Связаться с менеджером", callback_data="contact_manager")],
+            [InlineKeyboardButton(text="🆘 Помощь", callback_data="help")]
+        ]
+    
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+# ============================================
+# КОМАНДЫ
 # ============================================
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    """
-    Команда /start - приветствие и главное меню
-    """
+    """Команда /start"""
     db = SessionLocal()
-    
-    # ← ДОБАВЛЕНО: ЛОГИРУЕМ СОБЫТИЕ /start
-    if ANALYTICS_ENABLED:
-        try:
-            analytics_event = AnalyticsEvent(
-                event_type="start",
-                telegram_id=message.from_user.id,
-                username=message.from_user.username
-            )
-            db.add(analytics_event)
-            db.commit()
-        except Exception as e:
-            logger.error(f"Analytics error: {e}")
-    
-    user = db.query(User).filter(
-        User.telegram_id == message.from_user.id
-    ).first()
-    
-    if not user:
-        # НОВЫЙ ПОЛЬЗОВАТЕЛЬ - ONBOARDING
-        logger.info(f"🆕 NEW USER: {message.from_user.username or 'No username'} | ID: {message.from_user.id}")
+    try:
+        user = db.query(User).filter(User.telegram_id == message.from_user.id).first()
         
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🏢 О компании HappySnack", callback_data="about_company")],
-            [InlineKeyboardButton(text="📦 Что мы предлагаем", callback_data="our_products")],
-            [InlineKeyboardButton(text="💰 Условия работы", callback_data="work_terms")],
-            [InlineKeyboardButton(text="📞 Контакты", callback_data="contacts")],
-            [InlineKeyboardButton(text="✅ Хочу начать работать!", callback_data="start_registration")]
-        ])
+        # Логирование нового пользователя
+        if not user:
+            logger.info(f"🆕 NEW USER: {message.from_user.username or 'No username'} | ID: {message.from_user.id}")
+            log_analytics_event("start", message.from_user.id, message.from_user.username)
+        
+        is_registered = bool(user and user.client and user.client.status in ["active", "pending"])
+        
+        welcome_text = (
+            f"🍿 <b>Добро пожаловать в HappySnack!</b>\n\n"
+            f"📱 <b>Ваш Telegram ID:</b> <code>{message.from_user.id}</code>\n\n"
+        )
+        
+        if is_registered:
+            client = user.client
+            welcome_text += (
+                f"👤 <b>{client.company_name}</b>\n"
+                f"💰 Бонусный баланс: <b>{client.bonus_balance:,.0f}₸</b>\n\n"
+                f"Выберите действие:"
+            )
+        else:
+            welcome_text += (
+                f"Мы предлагаем качественные снеки и напитки для вашего бизнеса!\n\n"
+                f"🎁 <b>Специальное предложение:</b>\n"
+                f"При регистрации - <b>5,000₸ бонусов</b> на первую покупку!\n\n"
+                f"Что вас интересует?"
+            )
         
         await message.answer(
-            f"👋 <b>Добро пожаловать в HappySnack B2B Shop!</b>\n\n"
-            f"<code>Ваш Telegram ID: {message.from_user.id}</code>\n"
-            f"<i>(Сохраните на случай если понадобится)</i>\n\n"
-            f"🏪 Мы — один из крупнейших дистрибьюторов качественных снеков и напитков в Казахстане. "
-            f"Работаем на рынке более 20 лет!\n\n"
-            f"🎯 <b>Работаем только с B2B клиентами:</b>\n"
-            f"• Магазины и супермаркеты\n"
-            f"• Кафе и рестораны\n"
-            f"• Киоски и автозаправки\n"
-            f"• Оптовые компании\n\n"
-            f"👇 <b>Узнайте больше о нас перед регистрацией:</b>",
+            welcome_text,
             parse_mode="HTML",
-            reply_markup=keyboard
+            reply_markup=get_start_keyboard(is_registered)
         )
-    else:
-        # СУЩЕСТВУЮЩИЙ ПОЛЬЗОВАТЕЛЬ
-        client = db.query(Client).filter(Client.user_id == user.id).first()
         
-        if user.role == "client":
-            if not client:
-                await message.answer(
-                    "❌ Профиль клиента не найден.\n\n"
-                    "Пожалуйста, завершите регистрацию."
-                )
-            elif client.status == "pending":
-                await message.answer(
-                    "⏳ <b>Ваша заявка на рассмотрении</b>\n\n"
-                    "🎁 После одобрения вы получите:\n"
-                    "• 5,000₸ приветственных бонусов!\n"
-                    "• Доступ к каталогу и ценам\n"
-                    "• Персональные условия работы\n\n"
-                    "Мы свяжемся с вами в течение 24 часов!\n\n"
-                    "По вопросам: +7 XXX XXX XX XX",
-                    parse_mode="HTML"
-                )
-            elif client.status == "active":
-                keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                    [
-                        InlineKeyboardButton(text="📦 Мои заказы", callback_data="my_orders"),
-                        InlineKeyboardButton(text="👤 Профиль", callback_data="profile")
-                    ],
-                    [InlineKeyboardButton(text="💬 Связаться с менеджером", callback_data="contact_manager")]
-                ])
-                
-                await message.answer(
-                    f"👋 С возвращением, <b>{client.company_name}</b>!\n\n"
-                    f"💰 Ваш бонусный баланс: <b>{client.bonus_balance:,.0f}₸</b>\n"
-                    f"💳 Доступный кредит: <b>{(client.credit_limit - client.debt):,.0f}₸</b>\n\n"
-                    f"Чем могу помочь? Напишите что вас интересует! 🚀",
-                    parse_mode="HTML",
-                    reply_markup=keyboard
-                )
-            else:
-                await message.answer(
-                    "🚫 Ваш аккаунт заблокирован.\n\n"
-                    "Свяжитесь с менеджером: +7 XXX XXX XX XX"
-                )
-        elif user.role in ["admin", "manager"]:
-            keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="📊 Статистика", callback_data="admin_stats")],
-                [
-                    InlineKeyboardButton(text="📦 Заказы", callback_data="admin_orders"),
-                    InlineKeyboardButton(text="👥 Клиенты", callback_data="admin_clients")
-                ]
-            ])
-            
-            await message.answer(
-                f"👋 Привет, {'администратор' if user.role == 'admin' else 'менеджер'}!\n\n"
-                "Используйте:\n"
-                "/admin - Админ-панель\n"
-                "/stats - Статистика воронки",
-                parse_mode="HTML",
-                reply_markup=keyboard
-            )
-    
-    db.close()
+    finally:
+        db.close()
 
-@dp.message(Command("myid"))
-async def cmd_myid(message: types.Message):
-    """Показать свой Telegram ID"""
-    await message.answer(
-        f"🆔 <b>Ваш Telegram ID:</b>\n\n"
-        f"<code>{message.from_user.id}</code>\n\n"
-        f"Username: @{message.from_user.username or 'не указан'}\n"
-        f"Имя: {message.from_user.full_name}",
-        parse_mode="HTML"
-    )
-
-@dp.message(Command("cancel"))
-async def cmd_cancel(message: types.Message, state: FSMContext):
-    """Отменить текущее действие"""
-    current_state = await state.get_state()
-    if current_state is None:
-        await message.answer("Нечего отменять 🤷‍♂️")
-        return
-    
-    await state.clear()
-    await message.answer("❌ Действие отменено.\n\nИспользуйте /start для начала.")
-
-# ← ДОБАВЛЕНО: КОМАНДА /stats ДЛЯ АНАЛИТИКИ
 @dp.message(Command("stats"))
 async def cmd_stats(message: types.Message):
-    """Статистика воронки (только для админов)"""
-    
-    if message.from_user.id not in settings.admin_ids:
+    """Статистика для админов"""
+    if message.from_user.id not in ADMIN_IDS:
         return
     
     if not ANALYTICS_ENABLED:
-        await message.answer("❌ Аналитика отключена (нет таблиц в БД)")
+        await message.answer("📊 Аналитика отключена")
         return
     
     db = SessionLocal()
-    
     try:
-        from datetime import datetime, timedelta
         today = datetime.utcnow().date()
-        week_ago = today - timedelta(days=7)
         
-        # Сегодня
+        # События за сегодня
         starts_today = db.query(AnalyticsEvent).filter(
             AnalyticsEvent.event_type == "start",
             func.date(AnalyticsEvent.created_at) == today
         ).count()
         
-        reg_started_today = db.query(AnalyticsEvent).filter(
+        regs_started_today = db.query(AnalyticsEvent).filter(
             AnalyticsEvent.event_type == "registration_started",
             func.date(AnalyticsEvent.created_at) == today
         ).count()
         
-        reg_completed_today = db.query(AnalyticsEvent).filter(
+        regs_completed_today = db.query(AnalyticsEvent).filter(
             AnalyticsEvent.event_type == "registration_completed",
             func.date(AnalyticsEvent.created_at) == today
         ).count()
         
-        # За неделю
-        starts_week = db.query(AnalyticsEvent).filter(
-            AnalyticsEvent.event_type == "start",
-            func.date(AnalyticsEvent.created_at) >= week_ago
+        approved_today = db.query(AnalyticsEvent).filter(
+            AnalyticsEvent.event_type == "client_approved",
+            func.date(AnalyticsEvent.created_at) == today
         ).count()
         
-        reg_completed_week = db.query(AnalyticsEvent).filter(
-            AnalyticsEvent.event_type == "registration_completed",
-            func.date(AnalyticsEvent.created_at) >= week_ago
-        ).count()
-        
-        # Всего
+        # Всего клиентов
         total_clients = db.query(Client).count()
-        pending_clients = db.query(Client).filter(Client.status == "pending").count()
         active_clients = db.query(Client).filter(Client.status == "active").count()
+        pending_clients = db.query(Client).filter(Client.status == "pending").count()
         
-        # Конверсия
-        conversion_week = (reg_completed_week / starts_week * 100) if starts_week > 0 else 0
-        
-        await message.answer(
-            f"📊 <b>СТАТИСТИКА ВОРОНКИ</b>\n\n"
-            f"<b>СЕГОДНЯ:</b>\n"
-            f"• /start: {starts_today}\n"
-            f"• Начали регистрацию: {reg_started_today}\n"
-            f"• Завершили: {reg_completed_today}\n\n"
-            f"<b>ЗА НЕДЕЛЮ:</b>\n"
-            f"• /start: {starts_week}\n"
-            f"• Завершили регистрацию: {reg_completed_week}\n"
-            f"• Конверсия: {conversion_week:.1f}%\n\n"
-            f"<b>ВСЕГО КЛИЕНТОВ:</b>\n"
+        stats_text = (
+            f"📊 <b>Статистика системы</b>\n\n"
+            f"🗓️ <b>Сегодня ({today.strftime('%d.%m.%Y')}):</b>\n"
+            f"• Новых пользователей: {starts_today}\n"
+            f"• Начато регистраций: {regs_started_today}\n"
+            f"• Завершено регистраций: {regs_completed_today}\n"
+            f"• Одобрено клиентов: {approved_today}\n\n"
+            f"👥 <b>Клиенты:</b>\n"
+            f"• Всего: {total_clients}\n"
             f"• Активных: {active_clients}\n"
             f"• На модерации: {pending_clients}\n"
-            f"• Всего: {total_clients}",
-            parse_mode="HTML"
         )
         
-    except Exception as e:
-        logger.error(f"Stats error: {e}", exc_info=True)
-        await message.answer(f"❌ Ошибка: {str(e)}")
+        await message.answer(stats_text, parse_mode="HTML")
+        
     finally:
         db.close()
 
-# ============================================
-# ONBOARDING CALLBACKS
-# ============================================
+@dp.message(Command("broadcast"))
+async def cmd_broadcast(message: types.Message, state: FSMContext):
+    """Массовая рассылка"""
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    
+    await state.set_state(BroadcastStates.waiting_for_message)
+    await message.answer(
+        "📢 <b>Массовая рассылка</b>\n\n"
+        "Напишите текст сообщения которое хотите отправить всем активным клиентам:",
+        parse_mode="HTML"
+    )
 
-@dp.callback_query(F.data == "about_company")
-async def callback_about_company(callback: types.CallbackQuery):
-    """О компании"""
+@dp.message(BroadcastStates.waiting_for_message)
+async def broadcast_get_message(message: types.Message, state: FSMContext):
+    """Получение текста рассылки"""
+    await state.update_data(broadcast_text=message.text)
+    
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✅ Хочу начать работать!", callback_data="start_registration")],
-        [InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_start")]
+        [
+            InlineKeyboardButton(text="✅ Да", callback_data="broadcast_add_photo"),
+            InlineKeyboardButton(text="❌ Нет", callback_data="broadcast_no_photo")
+        ]
     ])
     
-    await callback.message.edit_text(
-        "🏢 <b>О компании HappySnack</b>\n\n"
-        "📅 <b>История:</b>\n"
-        "Мы работаем на рынке дистрибуции более 20 лет и являемся одним из крупнейших "
-        "поставщиков снеков и напитков в Алматы.\n\n"
-        "🏆 <b>Наши преимущества:</b>\n"
-        "• Официальный дистрибьютор HAPPY CORN\n"
-        "• Собственный склад 500м²\n"
-        "• Команда 11 человек\n"
-        "• 7 торговых представителей\n"
-        "• Собственная логистика\n\n"
-        "💼 <b>С нами работают:</b>\n"
-        "• 150+ магазинов в Алматы\n"
-        "• Крупные сетевые супермаркеты\n"
-        "• Кафе и рестораны\n"
-        "• Киоски и автозаправки\n\n"
-        "✨ <b>Почему выбирают нас:</b>\n"
-        "• Широкий ассортимент (200+ позиций)\n"
-        "• Конкурентные цены\n"
-        "• Гибкие условия работы\n"
-        "• Быстрая доставка каждый день\n"
-        "• Персональный менеджер",
-        parse_mode="HTML",
-        reply_markup=keyboard
-    )
+    await message.answer("Добавить фото к сообщению?", reply_markup=keyboard)
+
+@dp.callback_query(F.data == "broadcast_add_photo")
+async def broadcast_add_photo(callback: types.CallbackQuery, state: FSMContext):
+    """Запрос фото"""
+    await state.set_state(BroadcastStates.waiting_for_photo)
+    await callback.message.edit_text("Отправьте фото:")
     await callback.answer()
 
-@dp.callback_query(F.data == "our_products")
-async def callback_our_products(callback: types.CallbackQuery):
-    """Наш ассортимент"""
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✅ Хочу начать работать!", callback_data="start_registration")],
-        [InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_start")]
-    ])
-    
-    await callback.message.edit_text(
-        "📦 <b>Наш ассортимент</b>\n\n"
-        "🍿 <b>ПОПКОРН HAPPY CORN (эксклюзивно!):</b>\n"
-        "• 7 вкусов: сырный, карамельный, BBQ, острый, сладкий и др.\n"
-        "• 5 видов фасовки (от малых до коробок)\n"
-        "• Маржа: до 60% - самая высокая в категории!\n"
-        "• Быстрая оборачиваемость: 2-3 дня\n\n"
-        "🥔 <b>ЧИПСЫ:</b>\n"
-        "• Papa Nachos\n"
-        "• Real Chips\n"
-        "• Gramzz\n"
-        "• Happy Crisp\n"
-        "Маржа: 25-35%\n\n"
-        "🍫 <b>БАТОНЧИКИ:</b>\n"
-        "• Здоровый перекус (протеиновые батончики)\n"
-        "Маржа: 30-40%\n\n"
-        "🍞 <b>ХЛЕБЦЫ</b>\n"
-        "• Различные виды\n"
-        "Маржа: 25-30%\n\n"
-        "🥤 <b>НАПИТКИ:</b>\n"
-        "• Живой квас (ржаной и овсяной)\n"
-        "• NITRO (энергетический напиток)\n"
-        "• NITRO Fresh (газированный напиток)\n"
-        "• Витаминизированная вода\n"
-        "• Salam TEA (чай)\n"
-        "Маржа: 20-30%\n\n"
-        "🥐 <b>СВЕЖАЯ ВЫПЕЧКА:</b>\n"
-        "• Круассаны\n"
-        "• Профитроли\n"
-        "• Трубочки с кремом\n"
-        "• Печенье\n"
-        "Маржа: 25-35%\n\n"
-        "✨ <b>Полный ассортимент доступен после регистрации!</b>",
-        parse_mode="HTML",
-        reply_markup=keyboard
-    )
+@dp.callback_query(F.data == "broadcast_no_photo")
+async def broadcast_no_photo(callback: types.CallbackQuery, state: FSMContext):
+    """Рассылка без фото"""
+    await show_broadcast_confirmation(callback.message, state)
     await callback.answer()
 
-@dp.callback_query(F.data == "work_terms")
-async def callback_work_terms(callback: types.CallbackQuery):
-    """Условия работы"""
+@dp.message(BroadcastStates.waiting_for_photo, F.photo)
+async def broadcast_get_photo(message: types.Message, state: FSMContext):
+    """Получение фото"""
+    photo = message.photo[-1]
+    await state.update_data(broadcast_photo=photo.file_id)
+    await show_broadcast_confirmation(message, state)
+
+async def show_broadcast_confirmation(message: types.Message, state: FSMContext):
+    """Подтверждение рассылки"""
+    data = await state.get_data()
+    broadcast_text = data.get('broadcast_text')
+    
+    db = SessionLocal()
+    active_clients = db.query(Client).filter(Client.status == "active").count()
+    db.close()
+    
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✅ Хочу начать работать!", callback_data="start_registration")],
-        [InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_start")]
+        [
+            InlineKeyboardButton(text="✅ Отправить всем", callback_data="broadcast_send_all"),
+            InlineKeyboardButton(text="❌ Отмена", callback_data="broadcast_cancel")
+        ]
     ])
     
-    await callback.message.edit_text(
-        "💰 <b>Условия работы</b>\n\n"
-        "💳 <b>Кредитный лимит:</b>\n"
-        "• Новым клиентам: до 500,000₸\n"
-        "• Постоянным: индивидуально (до 2,000,000₸)\n\n"
-        "📅 <b>Отсрочка платежа:</b>\n"
-        "• Стандарт: 14 дней\n"
-        "• Постоянным клиентам: до 30 дней\n\n"
-        "💎 <b>Скидки:</b>\n"
-        "• Персональные от 5%\n"
-        "• Акции и специальные предложения\n"
-        "• Скидки за объем\n\n"
-        "🎁 <b>Бонусная программа:</b>\n"
-        "• При регистрации: 5,000₸ сразу!\n"
-        "• Кэшбек: от 3% до 10% (прогрессивный)\n"
-        "• Можно оплатить до 20% заказа бонусами\n"
-        "• Бонусы не сгорают 6 месяцев\n\n"
-        "🚚 <b>Доставка:</b>\n"
-        "• По Алматы: бесплатно от 30,000₸\n"
-        "• Каждый день (кроме воскресенья)\n"
-        "• Выбор времени доставки\n\n"
-        "📦 <b>Минимальный заказ:</b>\n"
-        "• От 20,000₸\n\n"
-        "👨‍💼 <b>Поддержка:</b>\n"
-        "• Личный менеджер\n"
-        "• AI-ассистент 24/7\n"
-        "• Помощь с выкладкой товара\n"
-        "• Маркетинговые материалы",
+    await message.answer(
+        f"📢 <b>Подтверждение рассылки</b>\n\n"
+        f"Получателей: <b>{active_clients}</b> активных клиентов\n\n"
+        f"Текст:\n{broadcast_text}\n\n"
+        f"Отправить?",
         parse_mode="HTML",
         reply_markup=keyboard
     )
+
+@dp.callback_query(F.data == "broadcast_send_all")
+async def broadcast_send(callback: types.CallbackQuery, state: FSMContext):
+    """Отправка рассылки"""
+    data = await state.get_data()
+    broadcast_text = data.get('broadcast_text')
+    broadcast_photo = data.get('broadcast_photo')
+    
+    await callback.message.edit_text("⏳ Отправка рассылки...")
+    
+    db = SessionLocal()
+    try:
+        clients = db.query(Client).filter(Client.status == "active").all()
+        
+        success_count = 0
+        fail_count = 0
+        
+        for client in clients:
+            try:
+                user = db.query(User).filter(User.id == client.user_id).first()
+                if not user:
+                    continue
+                
+                if broadcast_photo:
+                    await bot.send_photo(
+                        user.telegram_id,
+                        photo=broadcast_photo,
+                        caption=broadcast_text,
+                        parse_mode="HTML"
+                    )
+                else:
+                    await bot.send_message(
+                        user.telegram_id,
+                        broadcast_text,
+                        parse_mode="HTML"
+                    )
+                
+                success_count += 1
+                await asyncio.sleep(0.1)
+                
+            except Exception as e:
+                logger.error(f"Broadcast error: {e}")
+                fail_count += 1
+        
+        await callback.message.edit_text(
+            f"✅ <b>Рассылка завершена!</b>\n\n"
+            f"Успешно: {success_count}\n"
+            f"Ошибок: {fail_count}",
+            parse_mode="HTML"
+        )
+        
+    finally:
+        db.close()
+        await state.clear()
+    
     await callback.answer()
 
-@dp.callback_query(F.data == "contacts")
-async def callback_contacts(callback: types.CallbackQuery):
-    """Контакты"""
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✅ Хочу начать работать!", callback_data="start_registration")],
-        [InlineKeyboardButton(text="◀️ Назад", callback_data="back_to_start")]
-    ])
-    
-    await callback.message.edit_text(
-        "📞 <b>Контакты</b>\n\n"
-        "🏢 <b>Название:</b> HappySnack\n\n"
-        "📍 <b>Адрес склада:</b>\n"
-        "г. Алматы, [ваш адрес]\n\n"
-        "📞 <b>Телефон:</b>\n"
-        "+7 XXX XXX XX XX\n\n"
-        "📧 <b>Email:</b>\n"
-        "info@happysnack.kz\n\n"
-        "💬 <b>Telegram менеджера:</b>\n"
-        "@happysnack_manager\n\n"
-        "⏰ <b>Режим работы:</b>\n"
-        "Пн-Пт: 9:00-18:00\n"
-        "Сб: 9:00-15:00\n"
-        "Вс: выходной\n\n"
-        "🚚 <b>Доставка:</b>\n"
-        "Ежедневно (кроме воскресенья)\n"
-        "с 10:00 до 19:00",
-        parse_mode="HTML",
-        reply_markup=keyboard
-    )
-    await callback.answer()
-
-@dp.callback_query(F.data == "back_to_start")
-async def callback_back_to_start(callback: types.CallbackQuery):
-    """Вернуться в главное меню onboarding"""
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🏢 О компании HappySnack", callback_data="about_company")],
-        [InlineKeyboardButton(text="📦 Что мы предлагаем", callback_data="our_products")],
-        [InlineKeyboardButton(text="💰 Условия работы", callback_data="work_terms")],
-        [InlineKeyboardButton(text="📞 Контакты", callback_data="contacts")],
-        [InlineKeyboardButton(text="✅ Хочу начать работать!", callback_data="start_registration")]
-    ])
-    
-    await callback.message.edit_text(
-        f"👋 <b>Добро пожаловать в HappySnack B2B Shop!</b>\n\n"
-        f"🏪 Мы — один из крупнейших дистрибьюторов качественных снеков и напитков в Казахстане. "
-        f"Работаем на рынке более 20 лет!\n\n"
-        f"🎯 <b>Работаем только с B2B клиентами:</b>\n"
-        f"• Магазины и супермаркеты\n"
-        f"• Кафе и рестораны\n"
-        f"• Киоски и автозаправки\n"
-        f"• Оптовые компании\n\n"
-        f"👇 <b>Узнайте больше о нас перед регистрацией:</b>",
-        parse_mode="HTML",
-        reply_markup=keyboard
-    )
+@dp.callback_query(F.data == "broadcast_cancel")
+async def broadcast_cancel(callback: types.CallbackQuery, state: FSMContext):
+    """Отмена рассылки"""
+    await state.clear()
+    await callback.message.edit_text("❌ Рассылка отменена")
     await callback.answer()
 
 # ============================================
-# РЕГИСТРАЦИЯ (FSM)
+# РЕГИСТРАЦИЯ
 # ============================================
 
 @dp.callback_query(F.data == "start_registration")
-async def start_registration(callback: types.CallbackQuery, state: FSMContext):
-    """Начать регистрацию"""
+async def callback_start_registration(callback: types.CallbackQuery, state: FSMContext):
+    """Начало регистрации"""
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.telegram_id == callback.from_user.id).first()
+        
+        if user and user.client:
+            await callback.answer("Вы уже зарегистрированы!", show_alert=True)
+            return
+        
+        log_analytics_event("registration_started", callback.from_user.id, callback.from_user.username)
+        
+        await state.set_state(RegistrationStates.waiting_for_company_name)
+        await callback.message.edit_text(
+            "📝 <b>Регистрация (Шаг 1 из 4)</b>\n\n"
+            "Введите название вашей компании:",
+            parse_mode="HTML"
+        )
+        
+    finally:
+        db.close()
     
-    # ← ДОБАВЛЕНО: ЛОГИРУЕМ НАЧАЛО РЕГИСТРАЦИИ
-    if ANALYTICS_ENABLED:
-        try:
-            db = SessionLocal()
-            analytics_event = AnalyticsEvent(
-                event_type="registration_started",
-                telegram_id=callback.from_user.id,
-                username=callback.from_user.username
-            )
-            db.add(analytics_event)
-            db.commit()
-            db.close()
-        except Exception as e:
-            logger.error(f"Analytics error: {e}")
-    
-    await callback.message.edit_text(
-        "📝 <b>Регистрация нового клиента</b>\n\n"
-        "Это займет всего 2 минуты!\n\n"
-        "🎁 <b>После одобрения вы получите 5,000₸ бонусов!</b>\n\n"
-        "1️⃣ <b>Шаг 1 из 4</b>\n\n"
-        "Введите <b>название вашей компании</b>:\n\n"
-        "<i>Например: ТОО \"Магазин 24/7\" или ИП Иванов</i>",
-        parse_mode="HTML"
-    )
     await callback.answer()
-    await state.set_state(RegistrationStates.waiting_for_company_name)
 
 @dp.message(RegistrationStates.waiting_for_company_name)
 async def process_company_name(message: types.Message, state: FSMContext):
-    """Получаем название компании"""
+    """Получение названия компании"""
     await state.update_data(company_name=message.text)
+    await state.set_state(RegistrationStates.waiting_for_bin_iin)
     
     await message.answer(
-        "2️⃣ <b>Шаг 2 из 4</b>\n\n"
-        "Введите <b>БИН/ИИН</b> вашей компании:\n\n"
-        "📋 Должен содержать ровно <b>12 цифр</b>\n\n"
-        "<i>Например: 123456789012</i>",
+        "📝 <b>Регистрация (Шаг 2 из 4)</b>\n\n"
+        "Введите БИН вашей компании (12 цифр):",
         parse_mode="HTML"
     )
-    await state.set_state(RegistrationStates.waiting_for_bin)
 
-@dp.message(RegistrationStates.waiting_for_bin)
+@dp.message(RegistrationStates.waiting_for_bin_iin)
 async def process_bin(message: types.Message, state: FSMContext):
-    """Получаем БИН с валидацией"""
+    """Получение БИН"""
+    bin_iin = message.text.strip()
     
-    # ← ДОБАВЛЕНО: ВАЛИДАЦИЯ БИН (ровно 12 цифр)
-    bin_iin = re.sub(r'[^\d]', '', message.text)  # Убираем все кроме цифр
-    
-    if len(bin_iin) != 12:
+    if not validate_bin(bin_iin):
         await message.answer(
-            "❌ <b>Неверный формат БИН/ИИН!</b>\n\n"
-            "БИН/ИИН должен содержать ровно <b>12 цифр</b>.\n\n"
-            f"Вы ввели: <code>{message.text}</code> ({len(bin_iin)} цифр)\n\n"
-            "Попробуйте еще раз:",
-            parse_mode="HTML"
+            "❌ БИН должен содержать ровно 12 цифр.\n\n"
+            "Попробуйте еще раз:"
         )
         return
     
     await state.update_data(bin_iin=bin_iin)
+    await state.set_state(RegistrationStates.waiting_for_address)
     
     await message.answer(
-        "3️⃣ <b>Шаг 3 из 4</b>\n\n"
-        "Введите <b>адрес</b> вашего магазина/склада:\n\n"
-        "<i>Например: г. Алматы, ул. Абая 150</i>",
+        "📝 <b>Регистрация (Шаг 3 из 4)</b>\n\n"
+        "Введите адрес вашей компании:",
         parse_mode="HTML"
     )
-    await state.set_state(RegistrationStates.waiting_for_address)
 
 @dp.message(RegistrationStates.waiting_for_address)
 async def process_address(message: types.Message, state: FSMContext):
-    """Получаем адрес"""
+    """Получение адреса"""
     await state.update_data(address=message.text)
+    await state.set_state(RegistrationStates.waiting_for_phone)
     
     await message.answer(
-        "4️⃣ <b>Шаг 4 из 4 (последний!)</b>\n\n"
-        "Введите <b>контактный телефон</b>:\n\n"
-        "📱 Формат: +7 777 123 45 67 или 8 777 123 45 67\n\n"
-        "<i>Например: +7 777 123 45 67</i>",
+        "📝 <b>Регистрация (Шаг 4 из 4)</b>\n\n"
+        "Введите контактный телефон:\n"
+        "Например: +7 777 123 45 67",
         parse_mode="HTML"
     )
-    await state.set_state(RegistrationStates.waiting_for_contact)
 
-@dp.message(RegistrationStates.waiting_for_contact)
-async def process_contact(message: types.Message, state: FSMContext):
-    """Завершаем регистрацию с валидацией телефона"""
+@dp.message(RegistrationStates.waiting_for_phone)
+async def process_phone(message: types.Message, state: FSMContext):
+    """Получение телефона и завершение регистрации"""
+    is_valid, formatted_phone = validate_phone(message.text)
     
-    # ← ДОБАВЛЕНО: ВАЛИДАЦИЯ ТЕЛЕФОНА
-    phone = re.sub(r'[^\d]', '', message.text)  # Убираем все кроме цифр
-    
-    # Проверяем формат +7XXXXXXXXXX или 8XXXXXXXXXX
-    if len(phone) == 11 and phone.startswith(('7', '8')):
-        # Нормализуем к формату +7XXXXXXXXXX
-        if phone.startswith('8'):
-            phone = '7' + phone[1:]
-        formatted_phone = f"+{phone}"
-    elif len(phone) == 10:
-        # Если 10 цифр, добавляем +7
-        formatted_phone = f"+7{phone}"
-    else:
+    if not is_valid:
         await message.answer(
-            "❌ <b>Неверный формат телефона!</b>\n\n"
-            "Телефон должен быть в формате:\n"
-            "• +7 777 123 45 67\n"
-            "• 8 777 123 45 67\n"
-            "• 7771234567\n\n"
-            f"Вы ввели: <code>{message.text}</code> ({len(phone)} цифр)\n\n"
-            "Попробуйте еще раз:",
-            parse_mode="HTML"
+            "❌ Неверный формат телефона.\n\n"
+            "Используйте формат: +7 XXX XXX XX XX\n"
+            "Попробуйте еще раз:"
         )
         return
     
-    db = SessionLocal()
     data = await state.get_data()
     
+    db = SessionLocal()
     try:
-        # Создаём пользователя
-        user = User(
-            telegram_id=message.from_user.id,
-            username=message.from_user.username,
-            role="client",
-            is_active=True
-        )
-        db.add(user)
-        db.flush()
+        # Создаем пользователя если не существует
+        user = db.query(User).filter(User.telegram_id == message.from_user.id).first()
+        if not user:
+            user = User(
+                telegram_id=message.from_user.id,
+                username=message.from_user.username,
+                role="client",
+                is_active=True
+            )
+            db.add(user)
+            db.flush()
         
-        # Создаём клиента (бонус начислится при одобрении)
+        # Создаем клиента
         client = Client(
             user_id=user.id,
             company_name=data['company_name'],
@@ -600,422 +536,393 @@ async def process_contact(message: types.Message, state: FSMContext):
             address=data['address'],
             contact_phone=formatted_phone,
             status="pending",
-            credit_limit=500000.0,
-            payment_delay_days=14,
-            discount_percent=0.0,
-            bonus_balance=0.0,  # Бонус начислится при одобрении
-            debt=0.0
+            bonus_balance=0.0,
+            first_order_discount_used=False
         )
         db.add(client)
-        db.flush()
-        
-        # ← ДОБАВЛЕНО: ЛОГИРУЕМ ЗАВЕРШЕНИЕ РЕГИСТРАЦИИ
-        if ANALYTICS_ENABLED:
-            analytics_event = AnalyticsEvent(
-                event_type="registration_completed",
-                telegram_id=message.from_user.id,
-                username=message.from_user.username,
-                event_metadata={
-                    "client_id": client.id,
-                    "company_name": data['company_name']
-                }
-            )
-            db.add(analytics_event)
-            
-            # Создаем метрики клиента
-            client_metrics = ClientMetrics(
-                client_id=client.id,
-                telegram_id=message.from_user.id,
-                first_start_at=datetime.utcnow(),
-                registration_completed_at=datetime.utcnow()
-            )
-            db.add(client_metrics)
-        
         db.commit()
         
-        await state.clear()
+        log_analytics_event(
+            "registration_completed",
+            message.from_user.id,
+            message.from_user.username,
+            {"company_name": data['company_name']}
+        )
         
+        # Уведомление клиенту
         await message.answer(
-            "✅ <b>Регистрация успешно завершена!</b>\n\n"
-            "⏳ Ваша заявка отправлена на рассмотрение.\n\n"
-            "🎁 <b>После одобрения вы получите:</b>\n"
-            "• 5,000₸ приветственных бонусов!\n"
-            "• Доступ к каталогу и ценам\n"
-            "• Персональные условия работы\n\n"
-            "💡 <b>Сделайте первый заказ от 50,000₸ и получите еще 5,000₸ бонусов!</b>\n\n"
-            "Мы проверим данные и свяжемся с вами в течение 24 часов.\n\n"
-            "Спасибо за интерес к HappySnack! 🎉",
+            "✅ <b>Регистрация завершена!</b>\n\n"
+            "Ваша заявка отправлена на модерацию.\n"
+            "Мы свяжемся с вами в ближайшее время!\n\n"
+            "🎁 После одобрения вы получите <b>5,000₸ бонусов</b> на первую покупку!",
             parse_mode="HTML"
         )
         
-        # Уведомляем админов С TELEGRAM ID И КНОПКОЙ
-        for admin_id in settings.admin_ids:
-            try:
-                keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(
-                        text="✅ Одобрить и начислить 5,000₸",
-                        callback_data=f"approve_client_{client.id}"
-                    )]
-                ])
-                
-                await bot.send_message(
-                    admin_id,
-                    f"🆕 <b>Новая заявка на регистрацию!</b>\n\n"
-                    f"👤 <b>Telegram ID: <code>{message.from_user.id}</code></b>\n"
-                    f"Username: @{message.from_user.username or 'нет'}\n"
-                    f"Имя: {message.from_user.full_name}\n\n"
-                    f"🏢 Компания: {data['company_name']}\n"
-                    f"📋 БИН: {data['bin_iin']}\n"
-                    f"📍 Адрес: {data['address']}\n"
-                    f"📞 Телефон: {formatted_phone}\n\n"
-                    f"💰 Welcome бонус: 5,000₸ (начислится при одобрении)",
-                    parse_mode="HTML",
-                    reply_markup=keyboard
-                )
-            except Exception as e:
-                logger.error(f"Failed to notify admin {admin_id}: {e}")
-                
+        # Уведомление админам
+        for admin_id in ADMIN_IDS:
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(
+                    text="✅ Одобрить и начислить 5,000₸",
+                    callback_data=f"approve_client_{client.id}"
+                )],
+                [InlineKeyboardButton(
+                    text="❌ Отклонить",
+                    callback_data=f"reject_client_{client.id}"
+                )]
+            ])
+            
+            await bot.send_message(
+                admin_id,
+                f"🆕 <b>Новая заявка на регистрацию</b>\n\n"
+                f"👤 Имя: {message.from_user.first_name or 'Не указано'}\n"
+                f"🏢 Компания: <b>{client.company_name}</b>\n"
+                f"📋 БИН: {client.bin_iin}\n"
+                f"📍 Адрес: {client.address}\n"
+                f"📞 Телефон: {formatted_phone}\n\n"
+                f"💬 Username: @{message.from_user.username or 'нет'}\n"
+                f"🆔 Telegram ID: <code>{message.from_user.id}</code>",
+                parse_mode="HTML",
+                reply_markup=keyboard
+            )
+        
     except Exception as e:
-        logger.error(f"Registration error: {e}", exc_info=True)
+        logger.error(f"Registration error: {e}")
+        db.rollback()
         await message.answer(
             "❌ Произошла ошибка при регистрации.\n\n"
-            f"Ошибка: {str(e)}\n\n"
             "Попробуйте позже или свяжитесь с нами:\n"
             "📞 +7 XXX XXX XX XX"
         )
-        await state.clear()
     finally:
         db.close()
+        await state.clear()
 
-# ← ДОБАВЛЕНО: CALLBACK ДЛЯ БЫСТРОГО ОДОБРЕНИЯ С WELCOME БОНУСОМ
 @dp.callback_query(F.data.startswith("approve_client_"))
-async def callback_approve_client_with_bonus(callback: types.CallbackQuery):
-    """Одобрить клиента и начислить welcome бонус"""
+async def callback_approve_client(callback: types.CallbackQuery):
+    """Одобрение клиента"""
+    client_id = int(callback.data.split("_")[2])
     
-    # Проверка что это админ
-    if callback.from_user.id not in settings.admin_ids:
-        await callback.answer("❌ У вас нет прав!", show_alert=True)
-        return
-    
+    db = SessionLocal()
     try:
-        client_id = int(callback.data.split("_")[-1])
-        
-        db = SessionLocal()
         client = db.query(Client).filter(Client.id == client_id).first()
-        
         if not client:
-            await callback.answer("❌ Клиент не найден!", show_alert=True)
-            db.close()
+            await callback.answer("Клиент не найден", show_alert=True)
             return
         
-        if client.status == "active":
-            await callback.answer("✅ Клиент уже одобрен!", show_alert=True)
-            db.close()
-            return
-        
-        # ОДОБРЯЕМ + НАЧИСЛЯЕМ WELCOME БОНУС
+        # Одобряем
         client.status = "active"
-        client.bonus_balance = 5000.0  # WELCOME БОНУС!
+        client.approved_at = datetime.utcnow()
+        client.bonus_balance = 5000.0
         
         # Создаем транзакцию бонусов
         bonus_transaction = BonusTransaction(
             client_id=client.id,
-            type="earned",
             amount=5000.0,
-            description="🎁 Welcome бонус за регистрацию"
-                    )
+            type="earn",
+            description="Welcome бонус при регистрации"
+        )
         db.add(bonus_transaction)
-        
-        # Обновляем метрики
-        if ANALYTICS_ENABLED:
-            metrics = db.query(ClientMetrics).filter(
-                ClientMetrics.client_id == client.id
-            ).first()
-            if metrics:
-                metrics.first_approved_at = datetime.utcnow()
-                metrics.total_bonus_earned = 5000
-            
-            # Логируем событие
-            analytics_event = AnalyticsEvent(
-                event_type="client_approved",
-                telegram_id=client.user.telegram_id,
-                event_metadata={"client_id": client.id}
-            )
-            db.add(analytics_event)
         
         db.commit()
         
-        # Уведомляем клиента
-        user = client.user
-        try:
-            await bot.send_message(
-                user.telegram_id,
-                "🎉 <b>Отличные новости!</b>\n\n"
-                "✅ Ваша регистрация одобрена!\n\n"
-                "🎁 <b>На ваш счет начислено 5,000₸ приветственных бонусов!</b>\n\n"
-                "Теперь вы можете:\n"
-                "• Смотреть каталог и цены\n"
-                "• Оформлять заказы\n"
-                "• Использовать бонусы (до 20% от заказа)\n\n"
-                "💡 Сделайте первый заказ от 50,000₸ и получите еще 5,000₸ бонусов!\n\n"
-                "Готовы начать? Напишите мне что вас интересует! 🚀",
-                parse_mode="HTML"
-            )
-        except Exception as e:
-            logger.error(f"Failed to notify client: {e}")
+        log_analytics_event("client_approved", client.user.telegram_id, client.user.username)
         
-        # Обновляем сообщение админу
+        # Уведомление клиенту
+        await bot.send_message(
+            client.user.telegram_id,
+            "🎉 <b>Отличные новости!</b>\n\n"
+            "✅ Ваша регистрация одобрена!\n\n"
+            "🎁 На ваш счет начислено <b>5,000₸</b> приветственных бонусов!\n\n"
+            "Используйте их при первой покупке. Бонусы покрывают до 100% стоимости заказа.\n\n"
+            "🛒 Откройте каталог и сделайте первый заказ!",
+            parse_mode="HTML",
+            reply_markup=get_start_keyboard(True)
+        )
+        
         await callback.message.edit_text(
-            f"{callback.message.text}\n\n"
-            f"✅ <b>ОДОБРЕНО!</b>\n"
-            f"💰 Начислено 5,000₸ welcome бонусов\n"
-            f"Одобрил: @{callback.from_user.username}",
+            f"✅ Клиент <b>{client.company_name}</b> одобрен!\n"
+            f"Начислено 5,000₸ бонусов.",
             parse_mode="HTML"
         )
         
-        await callback.answer("✅ Клиент одобрен! Welcome бонус начислен!", show_alert=True)
-        
-        db.close()
-        
     except Exception as e:
-        logger.error(f"Error approving client: {e}", exc_info=True)
-        await callback.answer(f"❌ Ошибка: {str(e)}", show_alert=True)
+        logger.error(f"Approve error: {e}")
+        db.rollback()
+        await callback.answer("Ошибка одобрения", show_alert=True)
+    finally:
+        db.close()
+    
+    await callback.answer()
 
 # ============================================
-# AI АССИСТЕНТ - РАБОТАЕТ ДЛЯ ВСЕХ!
+# ОБРАБОТКА WEBAPP
 # ============================================
 
-@dp.message(F.text, ~F.text.startswith('/'))
-async def handle_text_message(message: types.Message, state: FSMContext):
-    """
-    ← ОБНОВЛЕНО: AI РАБОТАЕТ ДЛЯ ВСЕХ!
-    Обрабатываем текстовые сообщения через AI
-    """
-    
-    # КРИТИЧНО: ПРОВЕРЯЕМ FSM СОСТОЯНИЕ - НЕ МЕШАЕМ РЕГИСТРАЦИИ!
-    current_state = await state.get_state()
-    if current_state is not None:
-        # Пользователь в процессе регистрации - не мешаем
-        return
-    
-    db = SessionLocal()
-    
+@dp.message(F.web_app_data)
+async def handle_webapp_data(message: types.Message):
+    """Обработка данных из WebApp"""
     try:
-        user = db.query(User).filter(
-            User.telegram_id == message.from_user.id
-        ).first()
+        data = json.loads(message.web_app_data.data)
         
-        # АДМИНЫ И МЕНЕДЖЕРЫ - пропускаем
-        if user and user.role in ["admin", "manager"]:
+        if data.get('action') == 'checkout':
+            await process_webapp_order(message, data)
+            
+    except Exception as e:
+        logger.error(f"WebApp data error: {e}")
+        await message.answer("❌ Ошибка обработки заказа")
+
+async def process_webapp_order(message: types.Message, order_data):
+    """Обработка заказа из webapp"""
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.telegram_id == message.from_user.id).first()
+        if not user or not user.client:
+            await message.answer("❌ Клиент не найден")
             return
         
-        # ПОКАЗЫВАЕМ ЧТО БОТ ПЕЧАТАЕТ
-        await bot.send_chat_action(message.chat.id, "typing")
+        client = user.client
+        cart = order_data.get('cart', {})
+        total = order_data.get('total', 0)
         
-        # ВАРИАНТ 1: НЕ ЗАРЕГИСТРИРОВАН - AI ПРОДАЕТ РЕГИСТРАЦИЮ!
-        if not user:
-            # ПРОВЕРЯЕМ ТРИГГЕРНЫЕ СЛОВА ДЛЯ ЗАПУСКА РЕГИСТРАЦИИ
+        # Применяем скидку на первый заказ
+        discount = 0
+        discount_percent = 0
+        
+        if not client.first_order_discount_used:
+            discount, discount_percent = calculate_first_order_discount(total)
+            if discount > 0:
+                client.first_order_discount_used = True
+        
+        final_total = total - discount
+        
+        # Создаем заказ
+        order = Order(
+            client_id=client.id,
+            status="pending",
+            total_amount=final_total,
+            discount_amount=discount,
+            created_at=datetime.utcnow()
+        )
+        db.add(order)
+        db.flush()
+        
+        # Добавляем товары
+        items_text = ""
+        for product_id, quantity in cart.items():
+            product = db.query(Product).filter(Product.id == int(product_id)).first()
+            if product:
+                order_item = OrderItem(
+                    order_id=order.id,
+                    product_id=product.id,
+                    quantity=quantity,
+                    price=product.price
+                )
+                db.add(order_item)
+                product.stock -= quantity
+                items_text += f"• {product.name} × {quantity}\n"
+        
+        db.commit()
+        
+        # Сообщение клиенту
+        discount_text = f"\n💎 Скидка -{discount_percent}%: -{discount:,.0f}₸" if discount > 0 else ""
+        
+        await message.answer(
+            f"✅ <b>Заказ #{order.id} оформлен!</b>\n\n"
+            f"📦 Товары:\n{items_text}\n"
+            f"💰 Сумма: {total:,.0f}₸"
+            f"{discount_text}\n"
+            f"💵 <b>К оплате: {final_total:,.0f}₸</b>\n\n"
+            f"⏰ Ожидайте звонка менеджера для подтверждения!",
+            parse_mode="HTML"
+        )
+        
+        # Уведомление торговому
+        await notify_sales_rep_about_order(order, client, items_text, final_total)
+        
+    except Exception as e:
+        logger.error(f"Order processing error: {e}")
+        db.rollback()
+        await message.answer("❌ Ошибка создания заказа")
+    finally:
+        db.close()
+
+async def notify_sales_rep_about_order(order, client, items_text, total):
+    """Уведомление торговому представителю"""
+    db = SessionLocal()
+    try:
+        sales_rep = None
+        if client.sales_rep_id:
+            sales_rep = db.query(SalesRepresentative).filter(
+                SalesRepresentative.id == client.sales_rep_id,
+                SalesRepresentative.is_active == True
+            ).first()
+        
+        message_text = (
+            f"🆕 <b>НОВЫЙ ЗАКАЗ #{order.id}</b>\n\n"
+            f"👤 Клиент: <b>{client.company_name}</b>\n"
+            f"📞 Телефон: {client.contact_phone}\n\n"
+            f"📦 Товары:\n{items_text}\n"
+            f"💵 Сумма: <b>{total:,.0f}₸</b>\n\n"
+            f"⏰ Время: {datetime.now().strftime('%d.%m.%Y %H:%M')}"
+        )
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✅ Подтвердить", callback_data=f"confirm_order_{order.id}"),
+                InlineKeyboardButton(text="📞 Позвонить", url=f"tel:{client.contact_phone}")
+            ],
+            [InlineKeyboardButton(text="❌ Отменить", callback_data=f"cancel_order_{order.id}")]
+        ])
+        
+        # Уведомление торговому
+        if sales_rep and sales_rep.telegram_id:
+            await bot.send_message(
+                sales_rep.telegram_id,
+                message_text,
+                parse_mode="HTML",
+                reply_markup=keyboard
+            )
+        
+        # Уведомление админу
+        for admin_id in ADMIN_IDS:
+            await bot.send_message(
+                admin_id,
+                f"🆕 <b>НОВЫЙ ЗАКАЗ #{order.id}</b>\n\n"
+                f"👤 {client.company_name}\n"
+                f"💵 {total:,.0f}₸\n"
+                f"👨‍💼 ТП: {sales_rep.name if sales_rep else 'Не назначен'}",
+                parse_mode="HTML"
+            )
+                
+    except Exception as e:
+        logger.error(f"Notify sales rep error: {e}")
+    finally:
+        db.close()
+
+# ============================================
+# ОБРАБОТКА ТЕКСТОВЫХ СООБЩЕНИЙ (AI)
+# ============================================
+
+@dp.message(F.text, StateFilter(None))
+async def handle_text_message(message: types.Message, state: FSMContext):
+    """Обработка текстовых сообщений"""
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.telegram_id == message.from_user.id).first()
+        is_registered = bool(user and user.client and user.client.status in ["active", "pending"])
+        
+        # Проверка триггерных слов для незарегистрированных
+        if not is_registered:
             trigger_words = ["да", "давай", "хочу", "согласен", "начнем", "начнём", "ок", "okay", "поехали", "погнали"]
             message_lower = message.text.lower().strip()
             
-            # Если пользователь соглашается - ЗАПУСКАЕМ РЕГИСТРАЦИЮ
             if any(word == message_lower or message_lower.startswith(word + " ") for word in trigger_words):
-                # Показываем начало регистрации
+                # Запускаем регистрацию
+                log_analytics_event("registration_started", message.from_user.id, message.from_user.username)
+                await state.set_state(RegistrationStates.waiting_for_company_name)
                 await message.answer(
-                    "📝 <b>Отлично! Начинаем регистрацию</b>\n\n"
-                    "Это займет всего 2 минуты!\n\n"
-                    "🎁 <b>После одобрения вы получите 5,000₸ бонусов!</b>\n\n"
-                    "1️⃣ <b>Шаг 1 из 4</b>\n\n"
-                    "Введите <b>название вашей компании</b>:\n\n"
-                    "<i>Например: ТОО \"Магазин 24/7\" или ИП Иванов</i>",
+                    "📝 <b>Регистрация (Шаг 1 из 4)</b>\n\n"
+                    "Введите название вашей компании:",
                     parse_mode="HTML"
                 )
-                
-                # ЛОГИРУЕМ НАЧАЛО РЕГИСТРАЦИИ
-                if ANALYTICS_ENABLED:
-                    analytics_event = AnalyticsEvent(
-                        event_type="registration_started",
-                        telegram_id=message.from_user.id,
-                        username=message.from_user.username
-                    )
-                    db.add(analytics_event)
-                    db.commit()
-                
-                # ЗАПУСКАЕМ FSM РЕГИСТРАЦИИ
-                await state.set_state(RegistrationStates.waiting_for_company_name)
                 return
-            
-            # ЛОГИРУЕМ СООБЩЕНИЕ ДО РЕГИСТРАЦИИ
-            if ANALYTICS_ENABLED:
-                analytics_event = AnalyticsEvent(
-                    event_type="pre_registration_message",
-                    telegram_id=message.from_user.id,
-                    username=message.from_user.username,
-                    event_metadata={"message": message.text[:100]}
-                )
-                db.add(analytics_event)
-                db.commit()
-            
-            # AI ДЛЯ НЕЗАРЕГИСТРИРОВАННЫХ + КНОПКА РЕГИСТРАЦИИ
-            if sales_assistant:
-                try:
-                    response = await sales_assistant.handle_message(
-                        message.text,
-                        client_id=None,
-                        db=db,
-                        is_registered=False
-                    )
-                    
-                    # ДОБАВЛЯЕМ КНОПКУ РЕГИСТРАЦИИ
-                    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                        [InlineKeyboardButton(
-                            text="✅ Зарегистрироваться",
-                            callback_data="start_registration"
-                        )]
-                    ])
-                    
-                    await message.answer(response, parse_mode="HTML", reply_markup=keyboard)
-                except Exception as e:
-                    logger.error(f"AI error for unregistered: {e}")
-                    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                        [InlineKeyboardButton(
-                            text="✅ Зарегистрироваться",
-                            callback_data="start_registration"
-                        )]
-                    ])
-                    await message.answer(
-                        "🤖 Привет! Я AI-ассистент HappySnack!\n\n"
-                        "🎁 <b>Специально для новых клиентов - 5,000₸ бонусов при регистрации!</b>\n\n"
-                        "Чтобы я мог помочь вам с ценами и заказами, "
-                        "пройдите быструю регистрацию - это 2 минуты!\n\n"
-                        "Нажмите кнопку ниже чтобы начать! 👇",
-                        parse_mode="HTML",
-                        reply_markup=keyboard
-                    )
-            else:
-                keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(
-                        text="✅ Зарегистрироваться",
-                        callback_data="start_registration"
-                    )]
-                ])
-                await message.answer(
-                    "🤖 Привет! Я AI-ассистент HappySnack!\n\n"
-                    "🎁 <b>Специально для новых клиентов - 5,000₸ бонусов при регистрации!</b>\n\n"
-                    "Нажмите кнопку ниже чтобы зарегистрироваться! 👇",
-                    parse_mode="HTML",
-                    reply_markup=keyboard
-                )
-            return
         
-        # ВАРИАНТ 2: ЗАРЕГИСТРИРОВАН, НО НЕТ ПРОФИЛЯ КЛИЕНТА
-        client = db.query(Client).filter(Client.user_id == user.id).first()
-        if not client:
-            await message.answer(
-                "❌ Профиль клиента не найден.\n\n"
-                "Пожалуйста, завершите регистрацию: /start"
-            )
-            return
-        
-        # ВАРИАНТ 3: ОЖИДАЕТ ОДОБРЕНИЯ
-        if client.status == "pending":
-            await message.answer(
-                "⏳ Ваша заявка на рассмотрении.\n\n"
-                "🎁 После одобрения вы получите 5,000₸ бонусов!\n\n"
-                "Мы свяжемся с вами в течение 24 часов!\n\n"
-                "По вопросам: +7 XXX XXX XX XX"
-            )
-            return
-        
-        # ВАРИАНТ 4: ЗАБЛОКИРОВАН
-        if client.status == "blocked":
-            await message.answer(
-                "🚫 Ваш аккаунт заблокирован.\n\n"
-                "Свяжитесь с менеджером: +7 XXX XXX XX XX"
-            )
-            return
-        
-        # ВАРИАНТ 5: АКТИВНЫЙ КЛИЕНТ - AI В ПОЛНУЮ СИЛУ!
-        if client.status == "active":
-            if not sales_assistant:
-                await message.answer(
-                    "🤖 AI-ассистент временно недоступен.\n\n"
-                    "Свяжитесь с менеджером: +7 XXX XXX XX XX"
-                )
-                return
-            
+        # AI ассистент
+        if sales_assistant:
             try:
-                response = await sales_assistant.handle_message(
+                response = await sales_assistant.process_message(
                     message.text,
-                    client.id,
-                    db,
-                    is_registered=True
+                    message.from_user.id,
+                    is_registered
                 )
                 
-                await message.answer(response, parse_mode="HTML")
-                
+                # Добавляем кнопку регистрации для незарегистрированных
+                if not is_registered:
+                    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                        [InlineKeyboardButton(
+                            text="✅ Зарегистрироваться",
+                            callback_data="start_registration"
+                        )]
+                    ])
+                    await message.answer(response, parse_mode="HTML", reply_markup=keyboard)
+                    
+                    log_analytics_event(
+                        "pre_registration_message",
+                        message.from_user.id,
+                        message.from_user.username
+                    )
+                else:
+                    await message.answer(response, parse_mode="HTML")
+                    
             except Exception as e:
-                logger.error(f"AI error for client {client.id}: {e}", exc_info=True)
+                logger.error(f"AI error: {e}")
                 await message.answer(
-                    "🤖 Извините, временные технические проблемы.\n\n"
-                    "Свяжитесь с менеджером:\n"
-                    "📞 +7 XXX XXX XX XX"
+                    "Извините, возникла ошибка. Попробуйте еще раз или свяжитесь с менеджером.",
+                    reply_markup=get_start_keyboard(is_registered)
                 )
-            
-    finally:
-        db.close()
-
-# ============================================
-# ОСТАЛЬНЫЕ CALLBACKS (мои заказы, профиль и т.д.)
-# ============================================
-
-@dp.callback_query(F.data == "my_orders")
-async def callback_my_orders(callback: types.CallbackQuery):
-    """Мои заказы"""
-    db = SessionLocal()
-    
-    try:
-        user = db.query(User).filter(User.telegram_id == callback.from_user.id).first()
-        if not user:
-            await callback.answer("❌ Пользователь не найден", show_alert=True)
-            return
-        
-        client = db.query(Client).filter(Client.user_id == user.id).first()
-        if not client:
-            await callback.answer("❌ Клиент не найден", show_alert=True)
-            return
-        
-        orders = db.query(Order).filter(
-            Order.client_id == client.id
-        ).order_by(Order.created_at.desc()).limit(10).all()
-        
-        if not orders:
-            await callback.message.edit_text(
-                "📦 <b>У вас пока нет заказов</b>\n\n"
-                "Напишите мне что вас интересует и я помогу оформить заказ!",
-                parse_mode="HTML"
-            )
         else:
-            text = "📦 <b>Ваши последние заказы:</b>\n\n"
-            for order in orders:
-                text += (
-                    f"🔸 {order.order_number}\n"
-                    f"   💰 {order.final_total:,.0f}₸ | "
-                    f"📊 {order.status}\n"
-                    f"   📅 {order.created_at.strftime('%d.%m.%Y')}\n\n"
-                )
+            await message.answer(
+                "Используйте кнопки меню для навигации 👇",
+                reply_markup=get_start_keyboard(is_registered)
+            )
             
-            await callback.message.edit_text(text, parse_mode="HTML")
     finally:
         db.close()
+
+# ============================================
+# CALLBACKS
+# ============================================
+
+@dp.callback_query(F.data == "products_info")
+async def callback_products_info(callback: types.CallbackQuery):
+    """Информация о продуктах"""
+    products_text = (
+        "📦 <b>Наш ассортимент</b>\n\n"
         
+        "🍿 <b>Попкорн HAPPY CORN (эксклюзив!)</b>\n"
+        "7 вкусов: сырный, карамельный, BBQ, острый, сладкий, соленый, классический\n"
+        "5 видов фасовки: от 100г до коробок по 12шт\n"
+        "💎 Маржа до 60% - самая высокая!\n\n"
+        
+        "🥔 <b>Чипсы:</b>\n"
+        "• Papa Nachos (сырные, острые, BBQ, классические)\n"
+        "• Real Chips (сметана-лук, краб, соль)\n"
+        "• Gramzz (паприка, сметана)\n"
+        "• Happy Crisp (сыр, BBQ)\n\n"
+        
+        "🍫 <b>Батончики «Здоровый перекус»:</b>\n"
+        "Протеиновые: шоколад, ваниль, карамель\n"
+        "Орехово-фруктовые\n\n"
+        
+        "🍞 <b>Хлебцы:</b>\n"
+        "Ржаные, гречневые, рисовые, мультизлаковые\n\n"
+        
+        "🥤 <b>Напитки:</b>\n"
+        "• Живой квас (ржаной, овсяной)\n"
+        "• NITRO Energy (3 вкуса)\n"
+        "• NITRO Fresh (лимон, апельсин)\n"
+        "• Вода витаминизированная\n"
+        "• Salam TEA (черный, зеленый)\n\n"
+        
+        "🥐 <b>Свежая выпечка:</b>\n"
+        "Круассаны, профитроли, трубочки с кремом, печенье\n\n"
+        
+        "💡 Для просмотра полного каталога с ценами - зарегистрируйтесь!"
+    )
+    
+    await callback.message.edit_text(
+        products_text,
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="👈 Назад", callback_data="back_to_start")]
+        ])
+    )
     await callback.answer()
 
 @dp.callback_query(F.data == "profile")
 async def callback_profile(callback: types.CallbackQuery):
     """Профиль клиента"""
     db = SessionLocal()
-    
     try:
         user = db.query(User).filter(User.telegram_id == callback.from_user.id).first()
         if not user:
@@ -1047,7 +954,7 @@ async def callback_profile(callback: types.CallbackQuery):
         await callback.message.edit_text(text, parse_mode="HTML")
     finally:
         db.close()
-        
+    
     await callback.answer()
 
 @dp.callback_query(F.data == "contact_manager")
@@ -1066,6 +973,23 @@ async def callback_contact_manager(callback: types.CallbackQuery):
     )
     await callback.answer()
 
+@dp.callback_query(F.data == "back_to_start")
+async def callback_back(callback: types.CallbackQuery):
+    """Назад в главное меню"""
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.telegram_id == callback.from_user.id).first()
+        is_registered = bool(user and user.client and user.client.status in ["active", "pending"])
+        
+        await callback.message.edit_text(
+            "Выберите действие:",
+            reply_markup=get_start_keyboard(is_registered)
+        )
+    finally:
+        db.close()
+    
+    await callback.answer()
+
 # ============================================
 # ЗАПУСК БОТА
 # ============================================
@@ -1075,6 +999,7 @@ async def main():
     logger.info("🚀 Starting HappySnack Bot...")
     logger.info(f"🤖 AI Assistant: {'✅ Enabled' if sales_assistant else '❌ Disabled'}")
     logger.info(f"📊 Analytics: {'✅ Enabled' if ANALYTICS_ENABLED else '❌ Disabled'}")
+    logger.info(f"🌐 WebApp URL: {WEBAPP_URL}")
     
     try:
         await dp.start_polling(bot)
