@@ -12,6 +12,9 @@ from models.product import Product, Category
 from models.order import Order, OrderItem
 
 DATABASE_URL = os.getenv("DATABASE_URL")
+# Принудительно используем psycopg3 драйвер
+if DATABASE_URL and DATABASE_URL.startswith('postgresql://'):
+    DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgresql+psycopg://')
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
 
