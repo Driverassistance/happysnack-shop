@@ -103,6 +103,9 @@ function loadPageData(pageId) {
         case 'orders':
             loadOrders();
             break;
+        case 'sales_reps':
+            loadSalesReps();
+            break;
         case 'ai':
             loadAIStats();
             loadAIConversations();
@@ -173,6 +176,7 @@ function renderProductsTable(products) {
             <td><span class="badge ${p.stock < 50 ? 'bg-danger' : 'bg-success'}">${p.stock} шт</span></td>
             <td><span class="badge ${p.is_active ? 'bg-success' : 'bg-secondary'}">${p.is_active ? 'Активен' : 'Неактивен'}</span></td>
             <td>
+                <button class="btn btn-sm btn-info" onclick="uploadProductPhoto(${p.id})" title="Загрузить фото"><i class="bi bi-camera"></i></button>
                 <button class="btn btn-sm btn-primary" onclick="editProduct(${p.id})"><i class="bi bi-pencil"></i></button>
                 <button class="btn btn-sm btn-${p.is_active ? 'warning' : 'success'}" onclick="toggleProduct(${p.id}, ${!p.is_active})"><i class="bi bi-${p.is_active ? 'eye-slash' : 'eye'}"></i></button>
             </td>
@@ -749,3 +753,179 @@ document.addEventListener('DOMContentLoaded', () => {
         proactiveTab.addEventListener('click', loadAIProactive);
     }
 });
+
+// ============================================
+// SALES REPRESENTATIVES - Торговые представители
+// ============================================
+
+async function loadSalesReps() {
+    try {
+        const reps = await apiFetch('/api/admin/sales_reps');
+        renderSalesReps(reps);
+    } catch (error) {
+        showError(`Ошибка загрузки ТП: ${error.message}`);
+    }
+}
+
+function renderSalesReps(reps) {
+    const tbody = document.getElementById('repsTable');
+    if (!reps || reps.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center">Торговые представители не найдены</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = reps.map(rep => `
+        <tr>
+            <td>${rep.id}</td>
+            <td><strong>${rep.name}</strong></td>
+            <td>${rep.telegram_id || '<span class="text-muted">Не указан</span>'}</td>
+            <td>${rep.phone || '<span class="text-muted">Не указан</span>'}</td>
+            <td><span class="badge ${rep.is_active ? 'bg-success' : 'bg-secondary'}">${rep.is_active ? 'Активен' : 'Неактивен'}</span></td>
+            <td>
+                <button class="btn btn-sm btn-primary" onclick="editRep(${rep.id})">
+                    <i class="bi bi-pencil"></i> Редактировать
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function showAddRepModal() {
+    // Простой промпт для быстрого добавления
+    const name = prompt('Введите ФИО торгового представителя:');
+    if (!name) return;
+    
+    const telegram_id = prompt('Введите Telegram ID (или оставьте пустым):');
+    const phone = prompt('Введите телефон (или оставьте пустым):');
+    
+    addRep({ name, telegram_id: telegram_id || null, phone: phone || null });
+}
+
+async function addRep(data) {
+    try {
+        await apiFetch('/api/admin/sales_reps', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+        showSuccess('Торговый представитель добавлен!');
+        loadSalesReps();
+    } catch (error) {
+        showError(`Ошибка добавления: ${error.message}`);
+    }
+}
+
+async function editRep(id) {
+    try {
+        const reps = await apiFetch('/api/admin/sales_reps');
+        const rep = reps.find(r => r.id === id);
+        if (!rep) return;
+        
+        const name = prompt('ФИО:', rep.name);
+        if (name === null) return;
+        
+        const telegram_id = prompt('Telegram ID:', rep.telegram_id || '');
+        const phone = prompt('Телефон:', rep.phone || '');
+        
+        await apiFetch(`/api/admin/sales_reps/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                name: name,
+                telegram_id: telegram_id || null,
+                phone: phone || null,
+                is_active: !!(telegram_id && phone)
+            })
+        });
+        
+        showSuccess('Торговый представитель обновлен!');
+        loadSalesReps();
+    } catch (error) {
+        showError(`Ошибка обновления: ${error.message}`);
+    }
+}
+
+// ============================================
+// PHOTO UPLOAD - Загрузка фото товаров
+// ============================================
+
+async function uploadProductPhoto(productId) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        // Проверка размера (макс 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            showError('Файл слишком большой! Максимум 5MB');
+            return;
+        }
+        
+        try {
+            // Сжимаем изображение
+            const compressed = await compressImage(file);
+            
+            // Создаем FormData
+            const formData = new FormData();
+            formData.append('photo', compressed);
+            
+            // Загружаем
+            await apiFetch(`/api/admin/products/${productId}/photo`, {
+                method: 'POST',
+                body: formData
+            });
+            
+            showSuccess('Фото загружено!');
+            loadProducts();
+        } catch (error) {
+            showError(`Ошибка загрузки фото: ${error.message}`);
+        }
+    };
+    
+    input.click();
+}
+
+async function compressImage(file) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+
+                // Масштабируем до 800×800 с сохранением пропорций
+                const maxSize = 800;
+                if (width > height) {
+                    if (width > maxSize) {
+                        height *= maxSize / width;
+                        width = maxSize;
+                    }
+                } else {
+                    if (height > maxSize) {
+                        width *= maxSize / height;
+                        height = maxSize;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                canvas.toBlob((blob) => {
+                    resolve(new File([blob], file.name, {
+                        type: 'image/jpeg',
+                        lastModified: Date.now()
+                    }));
+                }, 'image/jpeg', 0.85);
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+

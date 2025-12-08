@@ -86,6 +86,9 @@
         <a href="#orders" class="nav-link" onclick="showPage('orders')">
             <i class="bi bi-cart"></i> Заказы
         </a>
+		        <a href="#sales_reps" class="nav-link" onclick="showPage('sales_reps')">
+            <i class="bi bi-person-badge"></i> Торговые представители
+        </a>
 		<a href="#ai" class="nav-link" onclick="showPage('ai')">
             <i class="bi bi-robot"></i> AI Агент
         </a>
@@ -350,6 +353,31 @@
             </div>
         </div>
 		<!-- AI AGENT - ДОБАВЬ СЮДА -->
+                <!-- SALES REPS -->
+        <div id="sales_reps" class="page-section">
+            <h2>👨‍💼 Торговые представители</h2>
+            <div class="stat-card">
+                <button class="btn btn-primary mb-3" onclick="showAddRepModal()">
+                    <i class="bi bi-plus-circle"></i> Добавить ТП
+                </button>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>ФИО</th>
+                            <th>Telegram ID</th>
+                            <th>Телефон</th>
+                            <th>Статус</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody id="repsTable">
+                        <tr><td colspan="6" class="text-center">Загрузка...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <div id="ai" class="page-section">
             <h2>🤖 AI Sales Assistant</h2>
             
