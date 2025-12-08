@@ -54,6 +54,9 @@ storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
 # Инициализация БД
+# Принудительно используем psycopg3 драйвер
+if DATABASE_URL and DATABASE_URL.startswith('postgresql://'):
+    DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgresql+psycopg://')
 engine = create_engine(DATABASE_URL)
 
 # Модель торговых представителей
