@@ -10,3 +10,8 @@ venv/
 .env
 .vscode/
 node_modules/
+venv/
+.venv/
+app/venv/
+__pycache__/
+*.pyc
