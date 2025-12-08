@@ -28,7 +28,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
 
 from database import Base, SessionLocal
-from models.user import User, Client
+from models.user import User, Client, SalesRepresentative
 from models.product import Product, Category
 from models.order import Order, OrderItem
 from models.bonus import BonusTransaction
@@ -63,32 +63,6 @@ engine = create_engine(DATABASE_URL)
 from sqlalchemy import Column, Integer, String, Boolean
 from database import Base as DBBase
 
-class SalesRepresentative(DBBase):
-    __tablename__ = "sales_representatives"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
-    telegram_id = Column(BigInteger, unique=True, nullable=True)
-    phone = Column(String, nullable=True)
-    is_active = Column(Boolean, default=True)
-
-# AI ассистент
-try:
-    from ai_agent import SalesAssistant
-    ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-    if ANTHROPIC_API_KEY:
-        sales_assistant = SalesAssistant(api_key=ANTHROPIC_API_KEY)
-        logger.info("✅ AI Assistant initialized")
-    else:
-        logger.warning("⚠️ ANTHROPIC_API_KEY not found")
-        sales_assistant = None
-except Exception as e:
-    logger.error(f"❌ AI Assistant error: {e}")
-    sales_assistant = None
-
-# ============================================
-# FSM STATES
-# ============================================
 
 class RegistrationStates(StatesGroup):
     waiting_for_company_name = State()
