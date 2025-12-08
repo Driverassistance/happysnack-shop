@@ -75,10 +75,15 @@ class SalesRepresentative(DBBase):
 # AI ассистент
 try:
     from ai_agent import SalesAssistant
-    sales_assistant = SalesAssistant()
-    logger.info("✅ AI Assistant initialized")
+    ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+    if ANTHROPIC_API_KEY:
+        sales_assistant = SalesAssistant(api_key=ANTHROPIC_API_KEY)
+        logger.info("✅ AI Assistant initialized")
+    else:
+        logger.warning("⚠️ ANTHROPIC_API_KEY not found")
+        sales_assistant = None
 except Exception as e:
-    logger.warning(f"⚠️ AI Assistant not available: {e}")
+    logger.error(f"❌ AI Assistant error: {e}")
     sales_assistant = None
 
 # ============================================
