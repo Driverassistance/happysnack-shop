@@ -157,11 +157,16 @@ def get_start_keyboard(is_registered: bool = False):
         ]
     else:
         keyboard = [
+            [
+                InlineKeyboardButton(
+                    text="🛒 Посмотреть каталог",
+                    web_app=WebAppInfo(url=WEBAPP_URL)
+                )
+            ],
             [InlineKeyboardButton(text="✅ Хочу начать работать!", callback_data="start_registration")],
             [InlineKeyboardButton(text="📦 Что мы предлагаем", callback_data="products_info")],
             [InlineKeyboardButton(text="💰 Акции и специальные предложения", callback_data="promotions")],
-            [InlineKeyboardButton(text="📞 Связаться с менеджером", callback_data="contact_manager")],
-            [InlineKeyboardButton(text="🆘 Помощь", callback_data="help")]
+            [InlineKeyboardButton(text="📞 Связаться с менеджером", callback_data="contact_manager")]
         ]
     
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
