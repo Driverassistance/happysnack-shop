@@ -16,6 +16,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import (
+    ReplyKeyboardMarkup,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     ReplyKeyboardRemove,
@@ -171,6 +172,25 @@ def get_start_keyboard(is_registered: bool = False):
     
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
+
+def get_main_menu():
+    """Постоянное меню внизу"""
+    keyboard = ReplyKeyboardMarkup(
+        keyboard=[
+            [
+                KeyboardButton(text="🏠 Главная"),
+                KeyboardButton(text="🛒 Каталог")
+            ],
+            [
+                KeyboardButton(text="👤 Профиль"),
+                KeyboardButton(text="📦 Заказы")
+            ]
+        ],
+        resize_keyboard=True,
+        persistent=True
+    )
+    return keyboard
+
 # ============================================
 # КОМАНДЫ
 # ============================================
@@ -214,6 +234,20 @@ async def cmd_start(message: types.Message):
             parse_mode="HTML",
             reply_markup=get_start_keyboard(is_registered)
         )
+        
+        # Отправляем постоянное меню
+        if is_registered:
+            await message.answer(
+                "Используйте меню ниже для быстрого доступа:",
+                reply_markup=get_main_menu()
+            )
+        
+        # Отправляем постоянное меню
+        if is_registered:
+            await message.answer(
+                "Используйте меню ниже для быстрого доступа:",
+                reply_markup=get_main_menu()
+            )
         
     finally:
         db.close()
@@ -998,3 +1032,30 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+# ============================================
+# ОБРАБОТЧИКИ ПОСТОЯННОГО МЕНЮ
+# ============================================
+
+@dp.message(F.text == "🏠 Главная")
+async def menu_home(message: types.Message):
+    """Главная страница"""
+    await cmd_start(message)
+
+@dp.message(F.text == "🛒 Каталог")
+async def menu_catalog(message: types.Message):
+    """Открыть каталог"""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🛒 Открыть каталог", web_app=WebAppInfo(url=WEBAPP_URL))]
+    ])
+    await message.answer("Нажмите кнопку ниже чтобы открыть каталог:", reply_markup=keyboard)
+
+@dp.message(F.text == "👤 Профиль")
+async def menu_profile(message: types.Message):
+    """Профиль"""
+    await show_profile(message)
+
+@dp.message(F.text == "📦 Заказы")
+async def menu_orders(message: types.Message):
+    """Мои заказы"""
+    await show_orders(message)
+
