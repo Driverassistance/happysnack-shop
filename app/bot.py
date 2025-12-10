@@ -31,6 +31,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
 
 from database import Base, SessionLocal
 from models.user import User, Client, SalesRepresentative
+from ai_agent import SalesAssistant
 from models.product import Product, Category
 from models.order import Order, OrderItem
 from models.bonus import BonusTransaction
