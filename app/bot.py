@@ -826,7 +826,7 @@ async def notify_sales_rep_about_order(order, client, items_text, total):
 # ОБРАБОТКА ТЕКСТОВЫХ СООБЩЕНИЙ (AI)
 # ============================================
 
-@dp.message(F.text, StateFilter(None))
+@dp.message(F.text & ~F.text.in_(["🏠 Главная", "🛒 Каталог", "👤 Профиль", "📦 Заказы"]), StateFilter(None))
 async def handle_text_message(message: types.Message, state: FSMContext):
     """Обработка текстовых сообщений"""
     db = SessionLocal()
