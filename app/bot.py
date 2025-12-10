@@ -56,6 +56,10 @@ bot = Bot(token=TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
+# AI ассистент
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+sales_assistant = SalesAssistant(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
+
 # Инициализация БД
 # Принудительно используем psycopg3 драйвер
 if DATABASE_URL and DATABASE_URL.startswith('postgresql://'):
