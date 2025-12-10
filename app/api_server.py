@@ -21,7 +21,7 @@ SessionLocal = sessionmaker(bind=engine)
 async def get_catalog(request):
     """Получить каталог товаров"""
     try:
-        user_id = request.query.get('user_id')
+        user_id = int(request.query.get('user_id')) if request.query.get('user_id') else None
         
         db = SessionLocal()
         
