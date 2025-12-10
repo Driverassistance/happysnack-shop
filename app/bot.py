@@ -231,25 +231,21 @@ async def cmd_start(message: types.Message):
                 f"Что вас интересует?"
             )
         
+        # Отправляем с inline кнопками и постоянным меню
         await message.answer(
             welcome_text,
             parse_mode="HTML",
             reply_markup=get_start_keyboard(is_registered)
         )
         
-        # Отправляем постоянное меню
+        # Устанавливаем постоянное меню
         if is_registered:
             await message.answer(
-                "Используйте меню ниже для быстрого доступа:",
+                "Выберите действие:",
                 reply_markup=get_main_menu()
             )
-        
-        # Отправляем постоянное меню
-        if is_registered:
-            await message.answer(
-                "Используйте меню ниже для быстрого доступа:",
-                reply_markup=get_main_menu()
-            )
+
+
         
     finally:
         db.close()
