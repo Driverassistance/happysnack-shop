@@ -402,7 +402,7 @@ HAPPY CORN - наш эксклюзивный продукт, ГЛАВНЫЙ дл
             result.append(f"\n📦 {category_name.upper()}:")
             for product in cat_products[:10]:  # Максимум 10 товаров на категорию
                 price_info = f"{product.price:,.0f}₸" if product.price else "цена по запросу"
-                stock_info = f"({product.stock_quantity} шт.)" if product.stock_quantity else ""
+                stock_info = f"({product.quantity} шт.)" if hasattr(product, "quantity") and product.quantity else ""
                 result.append(f"  • {product.name} - {price_info} {stock_info}")
         
         return "\n".join(result)
