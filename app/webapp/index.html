@@ -256,9 +256,68 @@
             margin-top: 10px;
             cursor: pointer;
         }
+    
+    /* Прелоадер */
+    #loader {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 10000;
+        transition: opacity 0.3s ease;
+    }
+    
+    #loader.hidden {
+        opacity: 0;
+        pointer-events: none;
+    }
+    
+    .loader-spinner {
+        width: 50px;
+        height: 50px;
+        border: 4px solid rgba(255,255,255,0.3);
+        border-top: 4px solid white;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    
+    .loader-text {
+        color: white;
+        margin-top: 20px;
+        font-size: 16px;
+        font-weight: 500;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    /* Скрываем контент пока грузится */
+    body.loading #app {
+        opacity: 0;
+    }
+    
+    body.loaded #app {
+        opacity: 1;
+        transition: opacity 0.3s ease;
+    }
+
     </style>
 </head>
-<body>
+<body class="loading">
+    <!-- Прелоадер -->
+    <div id="loader">
+        <div class="loader-spinner"></div>
+        <div class="loader-text">🍿 Загружаем каталог...</div>
+    </div>
+
     <div id="installPrompt" class="install-prompt">
         <h3>📱 Установите приложение</h3>
         <p>Добавьте HappySnack на главный экран для быстрого доступа!</p>
@@ -292,6 +351,17 @@
     </button>
 
     <script>
+        // ===== ПРЕЛОАДЕР =====
+        function hideLoader() {
+            const loader = document.getElementById('loader');
+            document.body.classList.remove('loading');
+            document.body.classList.add('loaded');
+            if (loader) {
+                loader.classList.add('hidden');
+                setTimeout(() => loader.remove(), 300);
+            }
+        }
+
         const tg = window.Telegram.WebApp;
         tg.expand();
         tg.ready();
@@ -346,10 +416,12 @@
                 renderCategories();
                 renderProducts();
                 updateDiscountBanner();
+                hideLoader(); // Скрываем прелоадер после загрузки
             } catch (error) {
                 console.error('Ошибка загрузки:', error);
                 document.getElementById('products').innerHTML = 
                     '<div class="empty-state"><div class="empty-state-icon">❌</div><p>Ошибка загрузки товаров</p></div>';
+                hideLoader(); // Скрываем прелоадер даже при ошибке
             }
         }
 
