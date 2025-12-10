@@ -853,10 +853,14 @@ async def handle_text_message(message: types.Message, state: FSMContext):
         # AI ассистент
         if sales_assistant:
             try:
-                response = await sales_assistant.process_message(
-                    message.text,
-                    message.from_user.id,
-                    is_registered
+                # Получаем client_id из user
+                client_id = user.client.id if user and user.client else None
+                
+                response = await sales_assistant.handle_message(
+                    user_message=message.text,
+                    client_id=client_id,
+                    db=db,
+                    is_registered=is_registered
                 )
                 
                 # Добавляем кнопку регистрации для незарегистрированных
