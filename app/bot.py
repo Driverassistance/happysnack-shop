@@ -1061,6 +1061,19 @@ async def menu_profile(message: types.Message):
     await show_profile(message)
 
 @dp.message(F.text == "📦 Заказы")
+
+async def show_orders(message: types.Message):
+    """Показать заказы клиента"""
+    await message.answer(
+        "📦 <b>Ваши заказы</b>
+
+"
+        "История заказов временно недоступна.
+"
+        "Для уточнения статуса заказа свяжитесь с менеджером.",
+        parse_mode="HTML"
+    )
+
 async def menu_orders(message: types.Message):
     """Мои заказы"""
     await show_orders(message)
