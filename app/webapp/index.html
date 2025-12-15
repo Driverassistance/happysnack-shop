@@ -572,6 +572,7 @@
                     return sum + (product ? product.price * qty : 0);
                 }, 0)
             }));
+            tg.close(); // Закрываем WebApp чтобы данные отправились
         });
 
         // Загрузка при старте
