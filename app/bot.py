@@ -684,8 +684,10 @@ async def callback_approve_client(callback: types.CallbackQuery):
 @dp.message(F.web_app_data)
 async def handle_webapp_data(message: types.Message):
     """Обработка данных из WebApp"""
+    logger.info(f"📱 WebApp data received from user {message.from_user.id}")
     try:
         data = json.loads(message.web_app_data.data)
+        logger.info(f"📦 Order data: {data}")
         
         if data.get('action') == 'checkout':
             await process_webapp_order(message, data)
