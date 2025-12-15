@@ -1060,7 +1060,6 @@ async def menu_profile(message: types.Message):
     """Профиль"""
     await show_profile(message)
 
-@dp.message(F.text == "📦 Заказы")
 
 async def show_orders(message: types.Message):
     """Показать заказы клиента"""
@@ -1071,7 +1070,6 @@ async def show_orders(message: types.Message):
         parse_mode="HTML"
     )
 
-    )
 
 
 async def menu_orders(message: types.Message):
