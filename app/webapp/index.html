@@ -564,6 +564,9 @@
 
         // Кнопка оформления
         document.getElementById('cartButton').addEventListener('click', () => {
+            console.log('🛒 Кнопка корзины нажата!');
+            console.log('Cart:', cart);
+            
             const orderData = JSON.stringify({
                 action: 'checkout',
                 cart: cart,
@@ -573,7 +576,9 @@
                 }, 0)
             });
             
+            console.log('📤 Отправляю данные:', orderData);
             tg.sendData(orderData);
+            console.log('✅ tg.sendData вызван!');
             
             // Даем время на отправку данных перед закрытием
             setTimeout(() => {
