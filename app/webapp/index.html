@@ -564,15 +564,21 @@
 
         // Кнопка оформления
         document.getElementById('cartButton').addEventListener('click', () => {
-            tg.sendData(JSON.stringify({
+            const orderData = JSON.stringify({
                 action: 'checkout',
                 cart: cart,
                 total: Object.entries(cart).reduce((sum, [id, qty]) => {
                     const product = products.find(p => p.id == id);
                     return sum + (product ? product.price * qty : 0);
                 }, 0)
-            }));
-            tg.close(); // Закрываем WebApp чтобы данные отправились
+            });
+            
+            tg.sendData(orderData);
+            
+            // Даем время на отправку данных перед закрытием
+            setTimeout(() => {
+                tg.close();
+            }, 300);
         });
 
         // Загрузка при старте
