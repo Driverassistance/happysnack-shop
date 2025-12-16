@@ -516,38 +516,38 @@
         }
 
         function updateCartDisplay() {
-            const cartBtn = document.getElementById('cartButton');
-            const cartInfo = document.getElementById('cartInfo');
-            const cartTotal = document.getElementById('cartTotal');
-
-            const itemCount = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
-            const total = Object.entries(cart).reduce((sum, [id, qty]) => {
-                const product = products.find(p => p.id == id);
-                return sum + (product ? product.price * qty : 0);
-            }, 0);
-
-            if (itemCount === 0) {
-                cartBtn.disabled = true;
-                cartInfo.textContent = 'Корзина пуста';
-                cartTotal.textContent = '0₸';
-                tg.MainButton.hide();
-            } else {
-                cartBtn.disabled = false;
-                cartInfo.textContent = `${itemCount} ${getProductWord(itemCount)}`;
-                
-                // Показываем MainButton внизу экрана
-                tg.MainButton.setText(`Оформить заказ: ${formatPrice(total)}₸`);
-                tg.MainButton.show();
-                
-                let displayTotal = total;
-                if (isFirstOrder) {
-                    const discount = calculateDiscount(total);
-                    displayTotal = total - discount;
-                }
-                
-                cartTotal.textContent = `${formatPrice(displayTotal)}₸`;
-            }
+    const cartBtn = document.getElementById('cartButton');
+    const cartInfo = document.getElementById('cartInfo');
+    const cartTotal = document.getElementById('cartTotal');
+    
+    const itemCount = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
+    const total = Object.entries(cart).reduce((sum, [id, qty]) => {
+        const product = products.find(p => p.id == id);
+        return sum + (product ? product.price * qty : 0);
+    }, 0);
+    
+    if (itemCount === 0) {
+        cartBtn.disabled = true;
+        cartInfo.textContent = 'Корзина пуста';
+        cartTotal.textContent = '0₸';
+        tg.MainButton.hide();
+    } else {
+        cartBtn.disabled = false;
+        cartInfo.textContent = `${itemCount} ${getProductWord(itemCount)}`;
+        
+        tg.MainButton.setText(`Оформить заказ: ${formatPrice(total)}₸`);
+        tg.MainButton.show();
+        tg.MainButton.enable();
+        
+        let displayTotal = total;
+        if (isFirstOrder) {
+            const discount = calculateDiscount(total);
+            displayTotal = total - discount;
         }
+        
+        cartTotal.textContent = `${formatPrice(displayTotal)}₸`;
+    }
+}
 
         function calculateDiscount(total) {
             if (!isFirstOrder) return 0;
@@ -589,22 +589,7 @@
         });
 
         // ===== ОБРАБОТЧИК КНОПКИ КОРЗИНЫ (ИСПРАВЛЕНО: удалено tg.close) =====
-        document.getElementById('cartButton').addEventListener('click', () => {
-            console.log('🛒 Кнопка корзины нажата! Инициирую отправку данных...');
-            
-            // 1. Формируем полную сумму для отправки
-            const totalOrderPrice = Object.entries(cart).reduce((sum, [id, qty]) => {
-                const product = products.find(p => p.id == id);
-                return sum + (product ? product.price * qty : 0);
-            }, 0);
-            
-            const orderData = JSON.stringify({
-                action: 'checkout',
-                cart: cart,
-                total: totalOrderPrice, // Полная сумма до скидки
-                display_total: totalOrderPrice - calculateDiscount(totalOrderPrice), // Сумма со скидкой
-                is_first_order: isFirstOrder
-            });
+        
             
             // 2. Блокируем кнопку и меняем ее текст, чтобы показать, что процесс идет
             const cartBtn = document.getElementById('cartButton');
@@ -621,6 +606,35 @@
             console.log('✅ tg.sendData вызван! Ожидаем ответа от бота...');
             
             // УДАЛЕН АВТОМАТИЧЕСКИЙ ВЫЗОВ tg.close() - ЭТО БЫЛА ПРИЧИНА ПРОБЛЕМЫ
+        });
+
+
+        // ==========================================
+        // TELEGRAM MAINBUTTON - ОФОРМЛЕНИЕ ЗАКАЗА
+        // ==========================================
+        
+        // Настройка внешнего вида
+        tg.MainButton.setParams({
+            text: 'Корзина пуста',
+            color: '#FF6B35',
+            text_color: '#FFFFFF',
+            is_visible: false,
+            is_active: false
+        });
+        
+        // Обработчик нажатия MainButton
+        tg.MainButton.onClick(() => {
+            const orderData = {
+                action: 'checkout',
+                cart: cart,
+                total: Object.entries(cart).reduce((sum, [id, qty]) => {
+                    const product = products.find(p => p.id == id);
+                    return sum + (product ? product.price * qty : 0);
+                }, 0)
+            };
+            
+            // Отправляем данные боту
+            tg.sendData(JSON.stringify(orderData));
         });
 
         // Загрузка при старте
