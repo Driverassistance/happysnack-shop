@@ -606,7 +606,6 @@ if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.
   // ===== START =====
   function startApp() {
     tg = getTg();
-
     if (tg) {
       tg.ready();
       tg.expand();
@@ -620,22 +619,33 @@ if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.
         is_active: false,
       });
 
+      // ИСПРАВЛЕНО: Добавлен индикатор загрузки и отключение кнопки
       tg.MainButton.onClick(() => {
+        // 1. Визуальный фидбек: показываем прогресс и отключаем кнопку
+        tg.MainButton.showProgress();
+        tg.MainButton.disable(); 
+        tg.MainButton.setText("Отправка заказа..."); // Опционально, но полезно
+
         const total = Object.entries(cart).reduce((sum, [id, qty]) => {
           const product = products.find((p) => String(p.id) === String(id));
           return sum + (product ? (product.price || 0) * qty : 0);
         }, 0);
 
         const orderData = { action: "checkout", cart, total };
+        
+        // 2. Отправляем данные
         tg.sendData(JSON.stringify(orderData));
+        
+        // ВАЖНО: После этого WebApp ждет ответа. 
+        // Если бот успешно обработает заказ, он отправит сообщение в чат. 
+        // Пользователь сам закроет WebApp.
       });
     } else {
       console.warn("Telegram WebApp not detected yet (ok for browser test).");
     }
 
-    // страховка от вечного лоадера (если вообще что-то пошло не так)
+    // страховка от вечного лоадера
     setTimeout(() => hideLoader(), 8000);
-
     loadData();
   }
 
