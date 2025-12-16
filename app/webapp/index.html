@@ -591,18 +591,6 @@
         // ===== ОБРАБОТЧИК КНОПКИ КОРЗИНЫ (ИСПРАВЛЕНО: удалено tg.close) =====
         
             
-            // 2. Блокируем кнопку и меняем ее текст, чтобы показать, что процесс идет
-            const cartBtn = document.getElementById('cartButton');
-            const cartInfo = document.getElementById('cartInfo');
-            const cartTotal = document.getElementById('cartTotal');
-            
-            cartBtn.disabled = true;
-            cartInfo.textContent = 'Отправка заказа...';
-            cartTotal.textContent = '⏳';
-            
-            // 3. Отправляем данные боту. БОТ ДОЛЖЕН БУДЕТ ЗАКРЫТЬ WEBAPP!
-            console.log('📤 Отправляю данные:', orderData);
-            tg.sendData(orderData);
             console.log('✅ tg.sendData вызван! Ожидаем ответа от бота...');
             
             // УДАЛЕН АВТОМАТИЧЕСКИЙ ВЫЗОВ tg.close() - ЭТО БЫЛА ПРИЧИНА ПРОБЛЕМЫ
@@ -639,6 +627,9 @@
 
         // Загрузка при старте
         loadData();
+		setTimeout(() => {
+    hideLoader();
+}, 8000);
     </script>
 </body>
 </html>
