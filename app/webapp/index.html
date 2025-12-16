@@ -349,287 +349,299 @@
         <span id="cartTotal">0₸</span>
     </button>
 
-    <script>
-        // ===== ПРЕЛОАДЕР =====
-        function hideLoader() {
-            const loader = document.getElementById('loader');
-            document.body.classList.remove('loading');
-            document.body.classList.add('loaded');
-            if (loader) {
-                loader.classList.add('hidden');
-                setTimeout(() => loader.remove(), 300);
-            }
-        }
+   <script>
+  // ===== ПРЕЛОАДЕР =====
+  function hideLoader() {
+    const loader = document.getElementById("loader");
+    document.body.classList.remove("loading");
+    document.body.classList.add("loaded");
+    if (loader) {
+      loader.classList.add("hidden");
+      setTimeout(() => loader.remove(), 300);
+    }
+  }
 
-        // ===== ИНИЦИАЛИЗАЦИЯ TELEGRAM WEBAPP (ИСПРАВЛЕНО) =====
-        const tg = window.Telegram.WebApp;
-        tg.ready(); // Сначала сообщаем, что готовы
-        tg.expand(); // Потом расширяем на весь экран
+  // ===== SAFE TELEGRAM INIT =====
+  function getTg() {
+    try {
+      return window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+    } catch (e) {
+      return null;
+    }
+  }
 
-        let products = [];
-        let categories = [];
-        let cart = {};
-        let currentCategory = 'all';
-        let isFirstOrder = false;
-        let deferredPrompt;
+  let tg = null;
 
-        // PWA Install
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            document.getElementById('installPrompt').style.display = 'block';
-        });
+  let products = [];
+  let categories = [];
+  let cart = {};
+  let currentCategory = "all";
+  let isFirstOrder = false;
+  let deferredPrompt = null;
 
-        function installApp() {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                deferredPrompt.userChoice.then((choiceResult) => {
-                    if (choiceResult.outcome === 'accepted') {
-                        console.log('PWA installed');
-                    }
-                    deferredPrompt = null;
-                    document.getElementById('installPrompt').style.display = 'none';
-                });
-            }
-        }
+  // PWA Install
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    const el = document.getElementById("installPrompt");
+    if (el) el.style.display = "block";
+  });
 
-        // Регистрация Service Worker
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/service-worker.js')
-                .then((reg) => console.log('Service Worker registered', reg))
-                .catch((err) => console.log('Service Worker registration failed', err));
-        }
+  window.installApp = function installApp() {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.finally(() => {
+      deferredPrompt = null;
+      const el = document.getElementById("installPrompt");
+      if (el) el.style.display = "none";
+    });
+  };
 
-        // Загрузка данных
-        async function loadData() {
-            try {
-                const initData = tg.initDataUnsafe;
-                const userId = initData.user?.id;
+  // Service Worker (не критично)
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker
+      .register("/service-worker.js")
+      .then((reg) => console.log("SW registered", reg))
+      .catch((err) => console.log("SW failed", err));
+  }
 
-                // Предполагаем, что этот API возвращает данные
-                const response = await fetch(`/api/catalog?user_id=${userId}`);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const data = await response.json();
+  // ===== UI HELPERS =====
+  function formatPrice(price) {
+    return new Intl.NumberFormat("ru-RU").format(Math.round(price || 0));
+  }
 
-                products = data.products || [];
-                categories = data.categories || [];
-                isFirstOrder = data.is_first_order || false;
+  function getProductWord(count) {
+    const lastDigit = count % 10;
+    const lastTwoDigits = count % 100;
+    if (lastTwoDigits >= 11 && lastTwoDigits <= 19) return "товаров";
+    if (lastDigit === 1) return "товар";
+    if (lastDigit >= 2 && lastDigit <= 4) return "товара";
+    return "товаров";
+  }
 
-                renderCategories();
-                renderProducts();
-                updateDiscountBanner();
-                hideLoader(); // Скрываем прелоадер после загрузки
-            } catch (error) {
-                console.error('Ошибка загрузки:', error);
-                document.getElementById('products').innerHTML = 
-                    '<div class="empty-state"><div class="empty-state-icon">❌</div><p>Ошибка загрузки товаров</p></div>';
-                hideLoader(); // Скрываем прелоадер даже при ошибке
-            }
-        }
+  function calculateDiscount(total) {
+    if (!isFirstOrder) return 0;
+    if (total >= 50000) return total * 0.2;
+    if (total >= 25000) return total * 0.15;
+    if (total >= 15000) return total * 0.1;
+    return 0;
+  }
 
-        function renderCategories() {
-            const container = document.getElementById('categories');
-            const allChip = container.querySelector('[data-category="all"]');
-            
-            // Назначаем обработчик на "Все товары"
-            if (allChip) {
-                allChip.onclick = () => filterByCategory('all');
-            }
+  function updateDiscountBanner() {
+    const banner = document.getElementById("discountBanner");
+    const text = document.getElementById("discountText");
+    if (!banner || !text) return;
 
-            categories.forEach(cat => {
-                const chip = document.createElement('div');
-                chip.className = 'category-chip';
-                chip.dataset.category = cat.id;
-                chip.textContent = `${cat.icon || '📦'} ${cat.name}`;
-                chip.onclick = () => filterByCategory(cat.id);
-                container.appendChild(chip);
-            });
-        }
+    if (isFirstOrder) {
+      banner.style.display = "block";
+      text.textContent = "Первый заказ: скидка 10-20% при заказе от 15,000₸!";
+    } else {
+      banner.style.display = "none";
+    }
+  }
 
-        function renderProducts() {
-            const container = document.getElementById('products');
-            const filtered = currentCategory === 'all' 
-                ? products 
-                : products.filter(p => p.category_id === currentCategory);
+  function renderCategories() {
+    const container = document.getElementById("categories");
+    if (!container) return;
 
-            if (filtered.length === 0) {
-                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><p>Товары не найдены</p></div>';
-                return;
-            }
+    // очистим чипы, кроме "all"
+    container.innerHTML = `<div class="category-chip active" data-category="all">Все товары</div>`;
+    const allChip = container.querySelector('[data-category="all"]');
+    if (allChip) allChip.onclick = () => filterByCategory("all");
 
-            container.innerHTML = filtered.map(product => `
-                <div class="product-card">
-                    ${product.photo_url 
-                        ? `<img src="${product.photo_url}" class="product-image" alt="${product.name}">`
-                        : `<div class="product-image placeholder">📦</div>`
-                    }
-                    <div class="product-info">
-                        <div class="product-name">${product.name}</div>
-                        <div class="product-price">${formatPrice(product.price)}₸</div>
-                        <div class="product-stock">Остаток: ${product.stock} шт</div>
-                    </div>
-                    <div class="product-actions">
-                        <div class="qty-control">
-                            <button class="qty-btn" onclick="changeQty(${product.id}, -1)">−</button>
-                            <div class="qty-display" id="qty-${product.id}">${cart[product.id] || 0}</div>
-                            <button class="qty-btn" onclick="changeQty(${product.id}, 1)">+</button>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
+    categories.forEach((cat) => {
+      const chip = document.createElement("div");
+      chip.className = "category-chip";
+      chip.dataset.category = String(cat.id);
+      chip.textContent = `${cat.icon || "📦"} ${cat.name}`;
+      chip.onclick = () => filterByCategory(String(cat.id));
+      container.appendChild(chip);
+    });
+  }
 
-            updateCartDisplay();
-        }
+  function renderProducts() {
+    const container = document.getElementById("products");
+    if (!container) return;
 
-        function filterByCategory(categoryId) {
-            currentCategory = categoryId;
-            document.querySelectorAll('.category-chip').forEach(chip => {
-                chip.classList.toggle('active', chip.dataset.category == categoryId);
-            });
-            renderProducts();
-        }
+    const filtered =
+      currentCategory === "all"
+        ? products
+        : products.filter((p) => String(p.category_id) === String(currentCategory));
 
-        function changeQty(productId, delta) {
-            const product = products.find(p => p.id === productId);
-            if (!product) return;
+    if (!filtered.length) {
+      container.innerHTML =
+        '<div class="empty-state"><div class="empty-state-icon">📭</div><p>Товары не найдены</p></div>';
+      return;
+    }
 
-            const current = cart[productId] || 0;
-            // Убеждаемся, что количество не превышает остаток
-            const newQty = Math.max(0, Math.min(product.stock, current + delta));
+    container.innerHTML = filtered
+      .map(
+        (product) => `
+        <div class="product-card">
+          ${
+            product.photo_url
+              ? `<img src="${product.photo_url}" class="product-image" alt="${product.name}">`
+              : `<div class="product-image placeholder">📦</div>`
+          }
+          <div class="product-info">
+            <div class="product-name">${product.name}</div>
+            <div class="product-price">${formatPrice(product.price)}₸</div>
+            <div class="product-stock">Остаток: ${product.stock} шт</div>
+          </div>
+          <div class="product-actions">
+            <div class="qty-control">
+              <button class="qty-btn" onclick="changeQty(${product.id}, -1)">−</button>
+              <div class="qty-display" id="qty-${product.id}">${cart[product.id] || 0}</div>
+              <button class="qty-btn" onclick="changeQty(${product.id}, 1)">+</button>
+            </div>
+          </div>
+        </div>
+      `
+      )
+      .join("");
 
+    updateCartDisplay();
+  }
 
-            if (newQty === 0) {
-                delete cart[productId];
-            } else {
-                cart[productId] = newQty;
-            }
+  function filterByCategory(categoryId) {
+    currentCategory = categoryId;
+    document.querySelectorAll(".category-chip").forEach((chip) => {
+      chip.classList.toggle("active", chip.dataset.category == categoryId);
+    });
+    renderProducts();
+  }
 
-            // Обновляем дисплей количества
-            const qtyDisplay = document.getElementById(`qty-${productId}`);
-            if (qtyDisplay) {
-                qtyDisplay.textContent = newQty;
-            }
-            
-            updateCartDisplay();
-        }
+  window.changeQty = function changeQty(productId, delta) {
+    const product = products.find((p) => p.id === productId);
+    if (!product) return;
 
-        function updateCartDisplay() {
-    const cartBtn = document.getElementById('cartButton');
-    const cartInfo = document.getElementById('cartInfo');
-    const cartTotal = document.getElementById('cartTotal');
-    
+    const current = cart[productId] || 0;
+    const newQty = Math.max(0, Math.min(product.stock, current + delta));
+
+    if (newQty === 0) delete cart[productId];
+    else cart[productId] = newQty;
+
+    const qtyDisplay = document.getElementById(`qty-${productId}`);
+    if (qtyDisplay) qtyDisplay.textContent = String(newQty);
+
+    updateCartDisplay();
+  };
+
+  function updateCartDisplay() {
+    const cartBtn = document.getElementById("cartButton");
+    const cartInfo = document.getElementById("cartInfo");
+    const cartTotal = document.getElementById("cartTotal");
+
     const itemCount = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
     const total = Object.entries(cart).reduce((sum, [id, qty]) => {
-        const product = products.find(p => p.id == id);
-        return sum + (product ? product.price * qty : 0);
+      const product = products.find((p) => String(p.id) === String(id));
+      return sum + (product ? (product.price || 0) * qty : 0);
     }, 0);
-    
+
     if (itemCount === 0) {
-        cartBtn.disabled = true;
-        cartInfo.textContent = 'Корзина пуста';
-        cartTotal.textContent = '0₸';
-        tg.MainButton.hide();
-    } else {
-        cartBtn.disabled = false;
-        cartInfo.textContent = `${itemCount} ${getProductWord(itemCount)}`;
-        
-        tg.MainButton.setText(`Оформить заказ: ${formatPrice(total)}₸`);
-        tg.MainButton.show();
-        tg.MainButton.enable();
-        
-        let displayTotal = total;
-        if (isFirstOrder) {
-            const discount = calculateDiscount(total);
-            displayTotal = total - discount;
-        }
-        
-        cartTotal.textContent = `${formatPrice(displayTotal)}₸`;
+      if (cartBtn) cartBtn.disabled = true;
+      if (cartInfo) cartInfo.textContent = "Корзина пуста";
+      if (cartTotal) cartTotal.textContent = "0₸";
+      if (tg && tg.MainButton) tg.MainButton.hide();
+      return;
     }
+
+    if (cartBtn) cartBtn.disabled = false;
+    if (cartInfo) cartInfo.textContent = `${itemCount} ${getProductWord(itemCount)}`;
+
+    let displayTotal = total;
+    if (isFirstOrder) displayTotal = total - calculateDiscount(total);
+    if (cartTotal) cartTotal.textContent = `${formatPrice(displayTotal)}₸`;
+
+    if (tg && tg.MainButton) {
+      tg.MainButton.setText(`Оформить заказ: ${formatPrice(total)}₸`);
+      tg.MainButton.show();
+      tg.MainButton.enable();
+    }
+  }
+
+  // Search (не ломаем)
+  const searchInput = document.getElementById("searchInput");
+  if (searchInput) {
+    searchInput.addEventListener("input", (e) => {
+      console.log("Поиск по:", (e.target.value || "").toLowerCase());
+    });
+  }
+
+  // ===== LOAD DATA =====
+  async function loadData() {
+    console.log("LOAD DATA START");
+
+    try {
+      let userId = "";
+if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
+  userId = tg.initDataUnsafe.user.id;
 }
 
-        function calculateDiscount(total) {
-            if (!isFirstOrder) return 0;
-            if (total >= 50000) return total * 0.20;
-            if (total >= 25000) return total * 0.15;
-            if (total >= 15000) return total * 0.10;
-            return 0;
-        }
 
-        function updateDiscountBanner() {
-            const banner = document.getElementById('discountBanner');
-            const text = document.getElementById('discountText');
-            
-            if (isFirstOrder) {
-                banner.style.display = 'block';
-                text.textContent = 'Первый заказ: скидка 10-20% при заказе от 15,000₸!';
-            }
-        }
+      const response = await fetch(`/api/catalog?user_id=${userId}`, { cache: "no-store" });
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
-        function formatPrice(price) {
-            return new Intl.NumberFormat('ru-RU').format(Math.round(price));
-        }
+      const data = await response.json();
 
-        function getProductWord(count) {
-            const lastDigit = count % 10;
-            const lastTwoDigits = count % 100;
-            
-            if (lastTwoDigits >= 11 && lastTwoDigits <= 19) return 'товаров'; 
-            if (lastDigit === 1) return 'товар'; 
-            if (lastDigit >= 2 && lastDigit <= 4) return 'товара';
-            return 'товаров'; 
-        }
+      products = data.products || [];
+      categories = data.categories || [];
+      isFirstOrder = !!data.is_first_order;
 
-        // Поиск
-        document.getElementById('searchInput').addEventListener('input', (e) => {
-            const query = e.target.value.toLowerCase();
-            // TODO: Implement search filtering
-            console.log("Поиск по:", query);
-        });
+      renderCategories();
+      renderProducts();
+      updateDiscountBanner();
+    } catch (error) {
+      console.error("Ошибка загрузки:", error);
+      const productsEl = document.getElementById("products");
+      if (productsEl) {
+        productsEl.innerHTML =
+          '<div class="empty-state"><div class="empty-state-icon">❌</div><p>Ошибка загрузки товаров</p></div>';
+      }
+    } finally {
+      hideLoader();
+    }
+  }
 
-        // ===== ОБРАБОТЧИК КНОПКИ КОРЗИНЫ (ИСПРАВЛЕНО: удалено tg.close) =====
-        
-            
-            console.log('✅ tg.sendData вызван! Ожидаем ответа от бота...');
-            
-            // УДАЛЕН АВТОМАТИЧЕСКИЙ ВЫЗОВ tg.close() - ЭТО БЫЛА ПРИЧИНА ПРОБЛЕМЫ
-        });
+  // ===== START =====
+  function startApp() {
+    tg = getTg();
 
+    if (tg) {
+      tg.ready();
+      tg.expand();
 
-        // ==========================================
-        // TELEGRAM MAINBUTTON - ОФОРМЛЕНИЕ ЗАКАЗА
-        // ==========================================
-        
-        // Настройка внешнего вида
-        tg.MainButton.setParams({
-            text: 'Корзина пуста',
-            color: '#FF6B35',
-            text_color: '#FFFFFF',
-            is_visible: false,
-            is_active: false
-        });
-        
-        // Обработчик нажатия MainButton
-        tg.MainButton.onClick(() => {
-            const orderData = {
-                action: 'checkout',
-                cart: cart,
-                total: Object.entries(cart).reduce((sum, [id, qty]) => {
-                    const product = products.find(p => p.id == id);
-                    return sum + (product ? product.price * qty : 0);
-                }, 0)
-            };
-            
-            // Отправляем данные боту
-            tg.sendData(JSON.stringify(orderData));
-        });
+      // MainButton checkout
+      tg.MainButton.setParams({
+        text: "Корзина пуста",
+        color: "#FF6B35",
+        text_color: "#FFFFFF",
+        is_visible: false,
+        is_active: false,
+      });
 
-        // Загрузка при старте
-        loadData();
-		setTimeout(() => {
-    hideLoader();
-}, 8000);
-    </script>
+      tg.MainButton.onClick(() => {
+        const total = Object.entries(cart).reduce((sum, [id, qty]) => {
+          const product = products.find((p) => String(p.id) === String(id));
+          return sum + (product ? (product.price || 0) * qty : 0);
+        }, 0);
+
+        const orderData = { action: "checkout", cart, total };
+        tg.sendData(JSON.stringify(orderData));
+      });
+    } else {
+      console.warn("Telegram WebApp not detected yet (ok for browser test).");
+    }
+
+    // страховка от вечного лоадера (если вообще что-то пошло не так)
+    setTimeout(() => hideLoader(), 8000);
+
+    loadData();
+  }
+
+  // запуск после загрузки DOM (чтобы Telegram-скрипт успел)
+  document.addEventListener("DOMContentLoaded", startApp);
+</script>
+
 </body>
 </html>
