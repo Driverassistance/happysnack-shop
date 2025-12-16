@@ -611,37 +611,7 @@ if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.
       tg.expand();
 
       // MainButton checkout
-      tg.MainButton.setParams({
-        text: "Корзина пуста",
-        color: "#FF6B35",
-        text_color: "#FFFFFF",
-        is_visible: false,
-        is_active: false,
-      });
-
-      // ИСПРАВЛЕНО: Добавлен индикатор загрузки и отключение кнопки
-      tg.MainButton.onClick(() => {
-        // 1. Визуальный фидбек: показываем прогресс и отключаем кнопку
-        tg.MainButton.showProgress();
-        tg.MainButton.disable(); 
-        tg.MainButton.setText("Отправка заказа..."); // Опционально, но полезно
-
-        const total = Object.entries(cart).reduce((sum, [id, qty]) => {
-          const product = products.find((p) => String(p.id) === String(id));
-          return sum + (product ? (product.price || 0) * qty : 0);
-        }, 0);
-
-        const orderData = { action: "checkout", cart, total };
-        
-        // 2. Отправляем данные
-        tg.sendData(JSON.stringify(orderData));
-        setTimeout(() => {
-  try { tg.close(); } catch (e) {}
-}, 150);
-        // ВАЖНО: После этого WebApp ждет ответа. 
-        // Если бот успешно обработает заказ, он отправит сообщение в чат. 
-        // Пользователь сам закроет WebApp.
-      });
+      
     } else {
       console.warn("Telegram WebApp not detected yet (ok for browser test).");
     }
