@@ -683,6 +683,7 @@ async def callback_approve_client(callback: types.CallbackQuery):
 
 @dp.message(F.web_app_data)
 async def handle_webapp_data(message: types.Message):
+    logger.warning("🔥 WEBAPP HANDLER FIRED")
     """Обработка данных из WebApp"""
     logger.info(f"📱 WebApp data received from user {message.from_user.id}")
     try:
