@@ -1073,6 +1073,36 @@ async def menu_catalog(message: types.Message):
     await message.answer("Нажмите кнопку ниже чтобы открыть каталог:", reply_markup=keyboard)
 
 @dp.message(F.text == "👤 Профиль")
+
+async def show_profile(message: types.Message):
+    """Показать профиль клиента"""
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.telegram_id == message.from_user.id).first()
+        
+        if not user or not user.client:
+            await message.answer("❌ Профиль не найден")
+            return
+        
+        client = user.client
+        
+        profile_text = (
+            f"👤 <b>Ваш профиль</b>\n\n"
+            f"🏢 Компания: {client.company_name}\n"
+            f"📱 Телефон: {client.contact_phone or 'не указан'}\n"
+            f"📍 Адрес: {client.address or 'не указан'}\n"
+            f"💰 Бонусы: {client.bonus_balance:,.0f}₸\n"
+        )
+        
+        if client.first_order_discount_used:
+            profile_text += "\n✅ Скидка первого заказа использована"
+        else:
+            profile_text += "\n🎁 Доступна скидка на первый заказ!"
+        
+        await message.answer(profile_text, parse_mode="HTML")
+    finally:
+        db.close()
+
 async def menu_profile(message: types.Message):
     """Профиль"""
     await show_profile(message)
