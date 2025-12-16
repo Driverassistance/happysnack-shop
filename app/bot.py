@@ -734,17 +734,28 @@ async def process_webapp_order(message: types.Message, order_data):
         # Добавляем товары
         items_text = ""
         for product_id, quantity in cart.items():
-            product = db.query(Product).filter(Product.id == int(product_id)).first()
-            if product:
-                order_item = OrderItem(
-                    order_id=order.id,
-                    product_id=product.id,
-                    quantity=quantity,
-                    price=product.price
-                )
-                db.add(order_item)
-                product.stock -= quantity
-                items_text += f"• {product.name} × {quantity}\n"
+    try:
+        product_id_int = int(product_id)
+        quantity_int = int(quantity)
+    except (TypeError, ValueError):
+        continue
+
+    product = db.query(Product).filter(Product.id == product_id_int).first()
+    if product:
+        order_item = OrderItem(
+            order_id=order.id,
+            product_id=product.id,
+            quantity=quantity_int,
+            price=product.price
+        )
+        db.add(order_item)
+
+        # защита на случай None и типов
+        if product.stock is not None:
+            product.stock = int(product.stock) - quantity_int
+
+        items_text += f"• {product.name} × {quantity_int}\n"
+
         
         db.commit()
         

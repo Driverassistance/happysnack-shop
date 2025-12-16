@@ -635,7 +635,9 @@ if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.
         
         // 2. Отправляем данные
         tg.sendData(JSON.stringify(orderData));
-        
+        setTimeout(() => {
+  try { tg.close(); } catch (e) {}
+}, 150);
         // ВАЖНО: После этого WebApp ждет ответа. 
         // Если бот успешно обработает заказ, он отправит сообщение в чат. 
         // Пользователь сам закроет WebApp.
