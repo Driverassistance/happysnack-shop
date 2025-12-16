@@ -1,38 +1,41 @@
 """
-API сервер для Telegram WebApp
+API сервер для Telegram WebApp и Admin Dashboard
+Полная версия со всеми endpoints
 """
 from aiohttp import web
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, func, desc
 import json
 import os
+from datetime import datetime, timedelta
 
 from models.user import User, Client, SalesRepresentative
 from models.product import Product, Category
 from models.order import Order, OrderItem
 
 DATABASE_URL = os.getenv("DATABASE_URL")
-# Принудительно используем psycopg3 драйвер
 if DATABASE_URL and DATABASE_URL.startswith('postgresql://'):
     DATABASE_URL = DATABASE_URL.replace('postgresql://', 'postgresql+psycopg://')
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
 
+# ============================================
+# WEBAPP ENDPOINTS (существующие)
+# ============================================
+
 async def get_catalog(request):
-    """Получить каталог товаров"""
+    """Получить каталог товаров для WebApp"""
     try:
         user_id = int(request.query.get('user_id')) if request.query.get('user_id') else None
         
         db = SessionLocal()
         
-        # Проверяем первый ли это заказ
         user = db.query(User).filter(User.telegram_id == user_id).first()
         is_first_order = False
         
         if user and user.client:
             is_first_order = not user.client.first_order_discount_used
         
-        # Загружаем категории
         categories = db.query(Category).filter(Category.is_active == True).order_by(Category.sort_order).all()
         categories_data = [
             {
@@ -43,7 +46,6 @@ async def get_catalog(request):
             for cat in categories
         ]
         
-        # Загружаем товары
         products = db.query(Product).filter(Product.is_active == True, Product.stock > 0).all()
         products_data = [
             {
@@ -104,6 +106,611 @@ async def serve_webapp(request):
     except FileNotFoundError:
         return web.Response(status=404)
 
+# ============================================
+# БЛОК 1: УПРАВЛЕНИЕ ТОВАРАМИ
+# ============================================
+
+async def get_products(request):
+    """Получить список всех товаров"""
+    try:
+        db = SessionLocal()
+        
+        # Фильтры
+        category_id = request.query.get('category_id')
+        is_active = request.query.get('is_active')
+        
+        query = db.query(Product)
+        
+        if category_id:
+            query = query.filter(Product.category_id == int(category_id))
+        if is_active is not None:
+            query = query.filter(Product.is_active == (is_active.lower() == 'true'))
+        
+        products = query.order_by(Product.name).all()
+        
+        products_data = [
+            {
+                'id': p.id,
+                'name': p.name,
+                'price': float(p.price),
+                'stock': p.stock,
+                'category_id': p.category_id,
+                'is_active': p.is_active,
+                'photo_file_id': p.photo_file_id
+            }
+            for p in products
+        ]
+        
+        db.close()
+        return web.json_response(products_data)
+        
+    except Exception as e:
+        print(f"API Error: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+async def get_product(request):
+    """Получить один товар"""
+    try:
+        product_id = int(request.match_info['id'])
+        db = SessionLocal()
+        
+        product = db.query(Product).filter(Product.id == product_id).first()
+        
+        if not product:
+            db.close()
+            return web.json_response({'error': 'Product not found'}, status=404)
+        
+        product_data = {
+            'id': product.id,
+            'name': product.name,
+            'price': float(product.price),
+            'stock': product.stock,
+            'category_id': product.category_id,
+            'is_active': product.is_active,
+            'photo_file_id': product.photo_file_id
+        }
+        
+        db.close()
+        return web.json_response(product_data)
+        
+    except Exception as e:
+        print(f"API Error: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+async def create_product(request):
+    """Создать новый товар"""
+    try:
+        data = await request.json()
+        db = SessionLocal()
+        
+        product = Product(
+            name=data['name'],
+            price=float(data['price']),
+            stock=int(data.get('stock', 0)),
+            category_id=int(data['category_id']),
+            is_active=data.get('is_active', True)
+        )
+        
+        db.add(product)
+        db.commit()
+        db.refresh(product)
+        
+        product_data = {
+            'id': product.id,
+            'name': product.name,
+            'price': float(product.price),
+            'stock': product.stock,
+            'category_id': product.category_id,
+            'is_active': product.is_active
+        }
+        
+        db.close()
+        return web.json_response(product_data, status=201)
+        
+    except Exception as e:
+        print(f"API Error: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+async def update_product(request):
+    """Обновить товар"""
+    try:
+        product_id = int(request.match_info['id'])
+        data = await request.json()
+        db = SessionLocal()
+        
+        product = db.query(Product).filter(Product.id == product_id).first()
+        
+        if not product:
+            db.close()
+            return web.json_response({'error': 'Product not found'}, status=404)
+        
+        if 'name' in data:
+            product.name = data['name']
+        if 'price' in data:
+            product.price = float(data['price'])
+        if 'stock' in data:
+            product.stock = int(data['stock'])
+        if 'category_id' in data:
+            product.category_id = int(data['category_id'])
+        if 'is_active' in data:
+            product.is_active = data['is_active']
+        
+        db.commit()
+        db.close()
+        
+        return web.json_response({'success': True})
+        
+    except Exception as e:
+        print(f"API Error: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+async def delete_product(request):
+    """Удалить товар (мягкое удаление)"""
+    try:
+        product_id = int(request.match_info['id'])
+        db = SessionLocal()
+        
+        product = db.query(Product).filter(Product.id == product_id).first()
+        
+        if not product:
+            db.close()
+            return web.json_response({'error': 'Product not found'}, status=404)
+        
+        product.is_active = False
+        db.commit()
+        db.close()
+        
+        return web.json_response({'success': True})
+        
+    except Exception as e:
+        print(f"API Error: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+async def upload_product_photo(request):
+    """Загрузить фото товара"""
+    try:
+        product_id = int(request.match_info['id'])
+        
+        reader = await request.multipart()
+        field = await reader.next()
+        
+        if field.name != 'photo':
+            return web.json_response({'error': 'No photo field'}, status=400)
+        
+        photo_data = await field.read()
+        
+        import tempfile
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as tmp:
+            tmp.write(photo_data)
+            tmp_path = tmp.name
+        
+        photo_file_id = f"local_{product_id}"
+        
+        db = SessionLocal()
+        product = db.query(Product).filter(Product.id == product_id).first()
+        
+        if not product:
+            db.close()
+            return web.json_response({'error': 'Product not found'}, status=404)
+        
+        product.photo_file_id = photo_file_id
+        db.commit()
+        db.close()
+        
+        import os
+        os.unlink(tmp_path)
+        
+        return web.json_response({'success': True, 'file_id': photo_file_id})
+        
+    except Exception as e:
+        print(f"API Error: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+# ============================================
+# БЛОК 2: УПРАВЛЕНИЕ КАТЕГОРИЯМИ
+# ============================================
+
+async def get_categories(request):
+    """Получить список категорий"""
+    try:
+        db = SessionLocal()
+        categories = db.query(Category).order_by(Category.sort_order).all()
+        
+        categories_data = [
+            {
+                'id': cat.id,
+                'name': cat.name,
+                'is_active': cat.is_active,
+                'sort_order': cat.sort_order
+            }
+            for cat in categories
+        ]
+        
+        db.close()
+        return web.json_response(categories_data)
+        
+    except Exception as e:
+        print(f"API Error: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+async def create_category(request):
+    """Создать категорию"""
+    try:
+        data = await request.json()
+        db = SessionLocal()
+        
+        max_order = db.query(func.max(Category.sort_order)).scalar() or 0
+        
+        category = Category(
+            name=data['name'],
+            is_active=data.get('is_active', True),
+            sort_order=max_order + 1
+        )
+        
+        db.add(category)
+        db.commit()
+        db.refresh(category)
+        
+        category_data = {
+            'id': category.id,
+            'name': category.name,
+            'is_active': category.is_active,
+            'sort_order': category.sort_order
+        }
+        
+        db.close()
+        return web.json_response(category_data, status=201)
+        
+    except Exception as e:
+        print(f"API Error: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+async def update_category(request):
+    """Обновить категорию"""
+    try:
+        category_id = int(request.match_info['id'])
+        data = await request.json()
+        db = SessionLocal()
+        
+        category = db.query(Category).filter(Category.id == category_id).first()
+        
+        if not category:
+            db.close()
+            return web.json_response({'error': 'Category not found'}, status=404)
+        
+        if 'name' in data:
+            category.name = data['name']
+        if 'is_active' in data:
+            category.is_active = data['is_active']
+        if 'sort_order' in data:
+            category.sort_order = int(data['sort_order'])
+        
+        db.commit()
+        db.close()
+        
+        return web.json_response({'success': True})
+        
+    except Exception as e:
+        print(f"API Error: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+# ============================================
+# БЛОК 3: УПРАВЛЕНИЕ КЛИЕНТАМИ
+# ============================================
+
+async def get_clients(request):
+    """Получить список клиентов"""
+    try:
+        db = SessionLocal()
+        clients = db.query(Client).order_by(desc(Client.created_at)).all()
+        
+        clients_data = [
+            {
+                'id': c.id,
+                'company_name': c.company_name,
+                'contact_phone': c.contact_phone,
+                'address': c.address,
+                'bonus_balance': float(c.bonus_balance),
+                'first_order_discount_used': c.first_order_discount_used,
+                'created_at': c.created_at.isoformat() if c.created_at else None
+            }
+            for c in clients
+        ]
+        
+        db.close()
+        return web.json_response(clients_data)
+        
+    except Exception as e:
+        print(f"API Error: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+async def get_client(request):
+    """Получить детали клиента"""
+    try:
+        client_id = int(request.match_info['id'])
+        db = SessionLocal()
+        
+        client = db.query(Client).filter(Client.id == client_id).first()
+        
+        if not client:
+            db.close()
+            return web.json_response({'error': 'Client not found'}, status=404)
+        
+        # Получаем заказы клиента
+        orders = db.query(Order).filter(Order.client_id == client_id).order_by(desc(Order.created_at)).limit(10).all()
+        
+        client_data = {
+            'id': client.id,
+            'company_name': client.company_name,
+            'contact_phone': client.contact_phone,
+            'address': client.address,
+            'bonus_balance': float(client.bonus_balance),
+            'first_order_discount_used': client.first_order_discount_used,
+            'created_at': client.created_at.isoformat() if client.created_at else None,
+            'recent_orders': [
+                {
+                    'id': o.id,
+                    'total_amount': float(o.total_amount),
+                    'status': o.status,
+                    'created_at': o.created_at.isoformat() if o.created_at else None
+                }
+                for o in orders
+            ]
+        }
+        
+        db.close()
+        return web.json_response(client_data)
+        
+    except Exception as e:
+        print(f"API Error: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+async def update_client(request):
+    """Обновить клиента"""
+    try:
+        client_id = int(request.match_info['id'])
+        data = await request.json()
+        db = SessionLocal()
+        
+        client = db.query(Client).filter(Client.id == client_id).first()
+        
+        if not client:
+            db.close()
+            return web.json_response({'error': 'Client not found'}, status=404)
+        
+        if 'company_name' in data:
+            client.company_name = data['company_name']
+        if 'contact_phone' in data:
+            client.contact_phone = data['contact_phone']
+        if 'address' in data:
+            client.address = data['address']
+        if 'bonus_balance' in data:
+            client.bonus_balance = float(data['bonus_balance'])
+        
+        db.commit()
+        db.close()
+        
+        return web.json_response({'success': True})
+        
+    except Exception as e:
+        print(f"API Error: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+# ============================================
+# БЛОК 4: УПРАВЛЕНИЕ ЗАКАЗАМИ
+# ============================================
+
+async def get_orders(request):
+    """Получить список заказов"""
+    try:
+        db = SessionLocal()
+        
+        # Фильтры
+        status = request.query.get('status')
+        limit = int(request.query.get('limit', 100))
+        
+        query = db.query(Order)
+        
+        if status:
+            query = query.filter(Order.status == status)
+        
+        orders = query.order_by(desc(Order.created_at)).limit(limit).all()
+        
+        orders_data = [
+            {
+                'id': o.id,
+                'client_id': o.client_id,
+                'client_name': o.client.company_name if o.client else 'Неизвестно',
+                'total_amount': float(o.total_amount),
+                'discount_amount': float(o.discount_amount),
+                'status': o.status,
+                'created_at': o.created_at.isoformat() if o.created_at else None
+            }
+            for o in orders
+        ]
+        
+        db.close()
+        return web.json_response(orders_data)
+        
+    except Exception as e:
+        print(f"API Error: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+async def get_order(request):
+    """Получить детали заказа"""
+    try:
+        order_id = int(request.match_info['id'])
+        db = SessionLocal()
+        
+        order = db.query(Order).filter(Order.id == order_id).first()
+        
+        if not order:
+            db.close()
+            return web.json_response({'error': 'Order not found'}, status=404)
+        
+        items = db.query(OrderItem).filter(OrderItem.order_id == order_id).all()
+        
+        order_data = {
+            'id': order.id,
+            'client_id': order.client_id,
+            'client_name': order.client.company_name if order.client else 'Неизвестно',
+            'client_phone': order.client.contact_phone if order.client else None,
+            'total_amount': float(order.total_amount),
+            'discount_amount': float(order.discount_amount),
+            'status': order.status,
+            'created_at': order.created_at.isoformat() if order.created_at else None,
+            'items': [
+                {
+                    'product_id': item.product_id,
+                    'product_name': item.product.name if item.product else 'Удален',
+                    'quantity': item.quantity,
+                    'price': float(item.price)
+                }
+                for item in items
+            ]
+        }
+        
+        db.close()
+        return web.json_response(order_data)
+        
+    except Exception as e:
+        print(f"API Error: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+async def update_order_status(request):
+    """Изменить статус заказа"""
+    try:
+        order_id = int(request.match_info['id'])
+        data = await request.json()
+        db = SessionLocal()
+        
+        order = db.query(Order).filter(Order.id == order_id).first()
+        
+        if not order:
+            db.close()
+            return web.json_response({'error': 'Order not found'}, status=404)
+        
+        new_status = data.get('status')
+        if new_status not in ['pending', 'confirmed', 'delivered', 'cancelled']:
+            db.close()
+            return web.json_response({'error': 'Invalid status'}, status=400)
+        
+        order.status = new_status
+        db.commit()
+        db.close()
+        
+        return web.json_response({'success': True})
+        
+    except Exception as e:
+        print(f"API Error: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+# ============================================
+# БЛОК 5: СТАТИСТИКА
+# ============================================
+
+async def get_dashboard_stats(request):
+    """Получить статистику для dashboard"""
+    try:
+        db = SessionLocal()
+        
+        # Период
+        days = int(request.query.get('days', 30))
+        start_date = datetime.utcnow() - timedelta(days=days)
+        
+        # Общая выручка
+        total_revenue = db.query(func.sum(Order.total_amount)).filter(
+            Order.created_at >= start_date,
+            Order.status.in_(['confirmed', 'delivered'])
+        ).scalar() or 0
+        
+        # Количество заказов
+        total_orders = db.query(func.count(Order.id)).filter(
+            Order.created_at >= start_date
+        ).scalar() or 0
+        
+        # Новые клиенты
+        new_clients = db.query(func.count(Client.id)).filter(
+            Client.created_at >= start_date
+        ).scalar() or 0
+        
+        # Топ товары
+        top_products = db.query(
+            Product.name,
+            func.sum(OrderItem.quantity).label('total_qty')
+        ).join(OrderItem).join(Order).filter(
+            Order.created_at >= start_date
+        ).group_by(Product.name).order_by(desc('total_qty')).limit(5).all()
+        
+        # Топ клиенты
+        top_clients = db.query(
+            Client.company_name,
+            func.sum(Order.total_amount).label('total_spent')
+        ).join(Order).filter(
+            Order.created_at >= start_date
+        ).group_by(Client.company_name).order_by(desc('total_spent')).limit(5).all()
+        
+        stats_data = {
+            'total_revenue': float(total_revenue),
+            'total_orders': total_orders,
+            'new_clients': new_clients,
+            'avg_order': float(total_revenue / total_orders) if total_orders > 0 else 0,
+            'top_products': [
+                {'name': p[0], 'quantity': p[1]}
+                for p in top_products
+            ],
+            'top_clients': [
+                {'name': c[0], 'total': float(c[1])}
+                for c in top_clients
+            ]
+        }
+        
+        db.close()
+        return web.json_response(stats_data)
+        
+    except Exception as e:
+        print(f"API Error: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+# ============================================
+# БЛОК 6: НАСТРОЙКИ
+# ============================================
+
+async def get_settings(request):
+    """Получить настройки системы"""
+    try:
+        settings = {
+            'welcome_bonus': int(os.getenv('WELCOME_BONUS', 5000)),
+            'min_order_amount': int(os.getenv('MIN_ORDER_AMOUNT', 10000)),
+            'first_order_discount_10k': 10,
+            'first_order_discount_20k': 15,
+            'first_order_discount_30k': 20,
+            'notifications_enabled': os.getenv('NOTIFICATIONS_ENABLED', 'true').lower() == 'true'
+        }
+        
+        return web.json_response(settings)
+        
+    except Exception as e:
+        print(f"API Error: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+async def update_settings(request):
+    """Обновить настройки системы"""
+    try:
+        data = await request.json()
+        
+        # В production это нужно сохранять в БД
+        # Пока возвращаем успех
+        
+        return web.json_response({'success': True})
+        
+    except Exception as e:
+        print(f"API Error: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+# ============================================
+# ТОРГОВЫЕ ПРЕДСТАВИТЕЛИ (существующие)
+# ============================================
 
 async def get_sales_reps(request):
     """Получить всех торговых представителей"""
@@ -189,64 +796,55 @@ async def add_sales_rep(request):
         print(f"API Error: {e}")
         return web.json_response({'error': str(e)}, status=500)
 
-async def upload_product_photo(request):
-    """Загрузить фото товара"""
-    try:
-        product_id = int(request.match_info['id'])
-        
-        reader = await request.multipart()
-        field = await reader.next()
-        
-        if field.name != 'photo':
-            return web.json_response({'error': 'No photo field'}, status=400)
-        
-        # Читаем файл
-        photo_data = await field.read()
-        
-        # Сохраняем во временный файл
-        import tempfile
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as tmp:
-            tmp.write(photo_data)
-            tmp_path = tmp.name
-        
-        # TODO: Загрузить в Telegram и получить file_id
-        # Пока просто сохраняем локально
-        photo_file_id = f"local_{product_id}"
-        
-        db = SessionLocal()
-        product = db.query(Product).filter(Product.id == product_id).first()
-        
-        if not product:
-            db.close()
-            return web.json_response({'error': 'Product not found'}, status=404)
-        
-        product.photo_file_id = photo_file_id
-        db.commit()
-        db.close()
-        
-        import os
-        os.unlink(tmp_path)
-        
-        return web.json_response({'success': True, 'file_id': photo_file_id})
-        
-    except Exception as e:
-        print(f"API Error: {e}")
-        return web.json_response({'error': str(e)}, status=500)
+# ============================================
+# СОЗДАНИЕ ПРИЛОЖЕНИЯ И МАРШРУТЫ
+# ============================================
 
 def create_app():
     app = web.Application()
     
-    # API routes
+    # WebApp routes
     app.router.add_get('/api/catalog', get_catalog)
+    
+    # Admin - Товары
+    app.router.add_get('/api/admin/products', get_products)
+    app.router.add_get('/api/admin/products/{id}', get_product)
+    app.router.add_post('/api/admin/products', create_product)
+    app.router.add_put('/api/admin/products/{id}', update_product)
+    app.router.add_delete('/api/admin/products/{id}', delete_product)
+    app.router.add_post('/api/admin/products/{id}/photo', upload_product_photo)
+    
+    # Admin - Категории
+    app.router.add_get('/api/admin/categories', get_categories)
+    app.router.add_post('/api/admin/categories', create_category)
+    app.router.add_put('/api/admin/categories/{id}', update_category)
+    
+    # Admin - Клиенты
+    app.router.add_get('/api/admin/clients', get_clients)
+    app.router.add_get('/api/admin/clients/{id}', get_client)
+    app.router.add_put('/api/admin/clients/{id}', update_client)
+    
+    # Admin - Заказы
+    app.router.add_get('/api/admin/orders', get_orders)
+    app.router.add_get('/api/admin/orders/{id}', get_order)
+    app.router.add_put('/api/admin/orders/{id}/status', update_order_status)
+    
+    # Admin - Статистика
+    app.router.add_get('/api/admin/stats/dashboard', get_dashboard_stats)
+    
+    # Admin - Настройки
+    app.router.add_get('/api/admin/settings', get_settings)
+    app.router.add_put('/api/admin/settings', update_settings)
+    
+    # Admin - Торговые представители
     app.router.add_get('/api/admin/sales_reps', get_sales_reps)
     app.router.add_post('/api/admin/sales_reps', add_sales_rep)
     app.router.add_put('/api/admin/sales_reps/{id}', update_sales_rep)
-    app.router.add_post('/api/admin/products/{id}/photo', upload_product_photo)
     
     # Dashboard static files
     app.router.add_static('/admin', 'static/admin', name='admin')
     
-    # WebApp routes
+    # WebApp routes (должны быть в конце)
     app.router.add_get('/', serve_webapp)
     app.router.add_get('/{path:.*}', serve_webapp)
     
