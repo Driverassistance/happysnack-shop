@@ -530,9 +530,14 @@
                 cartBtn.disabled = true;
                 cartInfo.textContent = 'Корзина пуста';
                 cartTotal.textContent = '0₸';
+                tg.MainButton.hide();
             } else {
                 cartBtn.disabled = false;
                 cartInfo.textContent = `${itemCount} ${getProductWord(itemCount)}`;
+                
+                // Показываем MainButton внизу экрана
+                tg.MainButton.setText(`Оформить заказ: ${formatPrice(total)}₸`);
+                tg.MainButton.show();
                 
                 let displayTotal = total;
                 if (isFirstOrder) {
