@@ -1,3 +1,12 @@
+// Скрыть прелоадер
+function hideDashboardLoader() {
+    const loader = document.getElementById('dashboard-loader');
+    if (loader) {
+        loader.classList.add('hidden');
+        setTimeout(() => loader.remove(), 300);
+    }
+}
+
 /**
  * HappySnack Admin Dashboard
  * Версия с централизованной функцией apiFetch для всех запросов.
@@ -107,7 +116,7 @@ function loadPageData(pageId) {
             loadSalesReps();
             break;
         case 'ai':
-            loadAIStats();
+            // loadAIStats(); // TODO: Implement AI stats
             loadAIConversations();
             break;    
         case 'settings':
@@ -215,7 +224,7 @@ function renderProductsGrid(products) {
 
 async function loadCategories() {
     try {
-        const categories = await apiFetch('/api/products/categories');
+        const categories = await apiFetch('/api/admin/categories');
         const select = document.getElementById('filterCategory');
         select.innerHTML = '<option value="">Все категории</option>' + 
             categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
@@ -263,7 +272,7 @@ async function toggleProduct(productId, isActive) {
 
 async function loadCategoriesTable() {
     try {
-        const categories = await apiFetch('/api/products/categories');
+        const categories = await apiFetch('/api/admin/categories');
         const tbody = document.getElementById('categoriesTable');
         tbody.innerHTML = categories.map(c => `
             <tr>
@@ -642,7 +651,7 @@ async function importProducts(file) {
 // AI AGENT DASHBOARD
 // ============================================
 
-async function loadAIStats() {
+// async function loadAIStats() {
     try {
         const stats = await apiFetch('/api/ai/stats?days=7');
         document.getElementById('aiTotalConversations').textContent = stats.conversations.total;

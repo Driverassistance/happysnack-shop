@@ -620,8 +620,7 @@ async def get_dashboard_stats(request):
         
         # Общая выручка
         total_revenue = db.query(func.sum(Order.total_amount)).filter(
-            Order.created_at >= start_date,
-            Order.status.in_(['confirmed', 'delivered'])
+            Order.created_at >= start_date
         ).scalar() or 0
         
         # Количество заказов
@@ -634,21 +633,25 @@ async def get_dashboard_stats(request):
             Client.created_at >= start_date
         ).scalar() or 0
         
-        # Топ товары
-        top_products = db.query(
+        # Топ товары (без фильтра по статусу заказа для начала)
+        top_products_query = db.query(
             Product.name,
             func.sum(OrderItem.quantity).label('total_qty')
         ).join(OrderItem).join(Order).filter(
             Order.created_at >= start_date
-        ).group_by(Product.name).order_by(desc('total_qty')).limit(5).all()
+        ).group_by(Product.id, Product.name).order_by(desc('total_qty')).limit(5)
+        
+        top_products = top_products_query.all()
         
         # Топ клиенты
-        top_clients = db.query(
+        top_clients_query = db.query(
             Client.company_name,
             func.sum(Order.total_amount).label('total_spent')
         ).join(Order).filter(
             Order.created_at >= start_date
-        ).group_by(Client.company_name).order_by(desc('total_spent')).limit(5).all()
+        ).group_by(Client.id, Client.company_name).order_by(desc('total_spent')).limit(5)
+        
+        top_clients = top_clients_query.all()
         
         stats_data = {
             'total_revenue': float(total_revenue),
@@ -656,11 +659,11 @@ async def get_dashboard_stats(request):
             'new_clients': new_clients,
             'avg_order': float(total_revenue / total_orders) if total_orders > 0 else 0,
             'top_products': [
-                {'name': p[0], 'quantity': p[1]}
+                {'name': p[0] if p[0] else 'Без названия', 'quantity': int(p[1]) if p[1] else 0}
                 for p in top_products
             ],
             'top_clients': [
-                {'name': c[0], 'total': float(c[1])}
+                {'name': c[0] if c[0] else 'Без имени', 'total': float(c[1]) if c[1] else 0}
                 for c in top_clients
             ]
         }
@@ -669,7 +672,10 @@ async def get_dashboard_stats(request):
         return web.json_response(stats_data)
         
     except Exception as e:
-        print(f"API Error: {e}")
+        import traceback
+        print(f"API Error in get_dashboard_stats: {e}")
+        print(traceback.format_exc())
+        db.close()
         return web.json_response({'error': str(e)}, status=500)
 
 # ============================================
