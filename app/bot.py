@@ -732,34 +732,35 @@ async def process_webapp_order(message: types.Message, order_data):
         db.flush()
         
         # Добавляем товары
+                # Добавляем товары
         items_text = ""
-    for product_id, quantity in cart.items():
-        try:
-        product_id_int = int(product_id)
-        quantity_int = int(quantity)
-    except (TypeError, ValueError):
-        continue
 
-    product = db.query(Product).filter(Product.id == product_id_int).first()
-    if not product:
-        continue
+        for product_id, quantity in cart.items():
+            try:
+                product_id_int = int(product_id)
+                quantity_int = int(quantity)
+            except (TypeError, ValueError):
+                continue
 
-    order_item = OrderItem(
-        order_id=order.id,
-        product_id=product.id,
-        quantity=quantity_int,
-        price=product.price
-    )
-    db.add(order_item)
+            product = db.query(Product).filter(Product.id == product_id_int).first()
+            if not product:
+                continue
 
-    if product.stock is not None:
-        product.stock = int(product.stock) - quantity_int
+            order_item = OrderItem(
+                order_id=order.id,
+                product_id=product.id,
+                quantity=quantity_int,
+                price=product.price
+            )
+            db.add(order_item)
 
-    items_text += f"• {product.name} × {quantity_int}\n"
+            if product.stock is not None:
+                product.stock = int(product.stock) - quantity_int
 
+            items_text += f"• {product.name} × {quantity_int}\n"
 
-        
         db.commit()
+
         
         # Сообщение клиенту
         discount_text = f"\n💎 Скидка -{discount_percent}%: -{discount:,.0f}₸" if discount > 0 else ""
