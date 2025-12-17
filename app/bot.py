@@ -261,7 +261,6 @@ async def cmd_stats(message: types.Message):
         return
     
     if not ANALYTICS_ENABLED:
-        await message.answer(
         return
     
     db = SessionLocal()
