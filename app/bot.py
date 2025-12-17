@@ -236,6 +236,7 @@ async def cmd_start(message: types.Message):
             )
         
         # Отправляем с inline кнопками и постоянным меню
+        logger.error("🔥 МАЯЧОК 10: Отправляем уведомление клиенту...")
         await message.answer(
             welcome_text,
             parse_mode="HTML",
@@ -244,7 +245,8 @@ async def cmd_start(message: types.Message):
         
         # Устанавливаем постоянное меню
         if is_registered:
-            await message.answer(
+            logger.error("🔥 МАЯЧОК 10: Отправляем уведомление клиенту...")
+        await message.answer(
                 "Выберите действие:",
                 reply_markup=get_main_menu()
             )
@@ -261,6 +263,7 @@ async def cmd_stats(message: types.Message):
         return
     
     if not ANALYTICS_ENABLED:
+        logger.error("🔥 МАЯЧОК 10: Отправляем уведомление клиенту...")
         await message.answer("📊 Аналитика отключена")
         return
     
@@ -307,6 +310,7 @@ async def cmd_stats(message: types.Message):
             f"• На модерации: {pending_clients}\n"
         )
         
+        logger.error("🔥 МАЯЧОК 10: Отправляем уведомление клиенту...")
         await message.answer(stats_text, parse_mode="HTML")
         
     finally:
@@ -319,7 +323,8 @@ async def cmd_broadcast(message: types.Message, state: FSMContext):
         return
     
     await state.set_state(BroadcastStates.waiting_for_message)
-    await message.answer(
+    logger.error("🔥 МАЯЧОК 10: Отправляем уведомление клиенту...")
+        await message.answer(
         "📢 <b>Массовая рассылка</b>\n\n"
         "Напишите текст сообщения которое хотите отправить всем активным клиентам:",
         parse_mode="HTML"
@@ -337,7 +342,8 @@ async def broadcast_get_message(message: types.Message, state: FSMContext):
         ]
     ])
     
-    await message.answer("Добавить фото к сообщению?", reply_markup=keyboard)
+    logger.error("🔥 МАЯЧОК 10: Отправляем уведомление клиенту...")
+        await message.answer("Добавить фото к сообщению?", reply_markup=keyboard)
 
 @dp.callback_query(F.data == "broadcast_add_photo")
 async def broadcast_add_photo(callback: types.CallbackQuery, state: FSMContext):
@@ -375,7 +381,8 @@ async def show_broadcast_confirmation(message: types.Message, state: FSMContext)
         ]
     ])
     
-    await message.answer(
+    logger.error("🔥 МАЯЧОК 10: Отправляем уведомление клиенту...")
+        await message.answer(
         f"📢 <b>Подтверждение рассылки</b>\n\n"
         f"Получателей: <b>{active_clients}</b> активных клиентов\n\n"
         f"Текст:\n{broadcast_text}\n\n"
@@ -482,7 +489,8 @@ async def process_company_name(message: types.Message, state: FSMContext):
     await state.update_data(company_name=message.text)
     await state.set_state(RegistrationStates.waiting_for_bin_iin)
     
-    await message.answer(
+    logger.error("🔥 МАЯЧОК 10: Отправляем уведомление клиенту...")
+        await message.answer(
         "📝 <b>Регистрация (Шаг 2 из 4)</b>\n\n"
         "Введите БИН вашей компании (12 цифр):",
         parse_mode="HTML"
@@ -494,6 +502,7 @@ async def process_bin(message: types.Message, state: FSMContext):
     bin_iin = message.text.strip()
     
     if not validate_bin(bin_iin):
+        logger.error("🔥 МАЯЧОК 10: Отправляем уведомление клиенту...")
         await message.answer(
             "❌ БИН должен содержать ровно 12 цифр.\n\n"
             "Попробуйте еще раз:"
@@ -503,7 +512,8 @@ async def process_bin(message: types.Message, state: FSMContext):
     await state.update_data(bin_iin=bin_iin)
     await state.set_state(RegistrationStates.waiting_for_address)
     
-    await message.answer(
+    logger.error("🔥 МАЯЧОК 10: Отправляем уведомление клиенту...")
+        await message.answer(
         "📝 <b>Регистрация (Шаг 3 из 4)</b>\n\n"
         "Введите адрес вашей компании:",
         parse_mode="HTML"
@@ -515,7 +525,8 @@ async def process_address(message: types.Message, state: FSMContext):
     await state.update_data(address=message.text)
     await state.set_state(RegistrationStates.waiting_for_phone)
     
-    await message.answer(
+    logger.error("🔥 МАЯЧОК 10: Отправляем уведомление клиенту...")
+        await message.answer(
         "📝 <b>Регистрация (Шаг 4 из 4)</b>\n\n"
         "Введите контактный телефон:\n"
         "Например: +7 777 123 45 67",
@@ -528,6 +539,7 @@ async def process_phone(message: types.Message, state: FSMContext):
     is_valid, formatted_phone = validate_phone(message.text)
     
     if not is_valid:
+        logger.error("🔥 МАЯЧОК 10: Отправляем уведомление клиенту...")
         await message.answer(
             "❌ Неверный формат телефона.\n\n"
             "Используйте формат: +7 XXX XXX XX XX\n"
@@ -573,6 +585,7 @@ async def process_phone(message: types.Message, state: FSMContext):
         )
         
         # Уведомление клиенту
+        logger.error("🔥 МАЯЧОК 10: Отправляем уведомление клиенту...")
         await message.answer(
             "✅ <b>Регистрация завершена!</b>\n\n"
             "Ваша заявка отправлена на модерацию.\n"
@@ -582,6 +595,7 @@ async def process_phone(message: types.Message, state: FSMContext):
         )
         
         # Уведомление админам
+        logger.error(f"🔥 МАЯЧОК 11: Отправляем админам! ADMIN_IDS={ADMIN_IDS}")
         for admin_id in ADMIN_IDS:
             keyboard = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(
@@ -611,6 +625,7 @@ async def process_phone(message: types.Message, state: FSMContext):
     except Exception as e:
         logger.error(f"Registration error: {e}")
         db.rollback()
+        logger.error("🔥 МАЯЧОК 10: Отправляем уведомление клиенту...")
         await message.answer(
             "❌ Произошла ошибка при регистрации.\n\n"
             "Попробуйте позже или свяжитесь с нами:\n"
@@ -694,7 +709,8 @@ async def profile_button(message: types.Message):
         )]
     ])
     
-    await message.answer(
+    logger.error("🔥 МАЯЧОК 10: Отправляем уведомление клиенту...")
+        await message.answer(
         "👤 <b>Личный кабинет</b>\n\n"
         "Здесь вы можете:\n"
         "• Посмотреть историю заказов\n"
@@ -720,6 +736,7 @@ async def handle_webapp_data(message: types.Message):
             
     except Exception as e:
         logger.error(f"WebApp data error: {e}")
+        logger.error("🔥 МАЯЧОК 10: Отправляем уведомление клиенту...")
         await message.answer("❌ Ошибка обработки заказа")
 
 async def process_webapp_order(message: types.Message, order_data):
@@ -728,7 +745,8 @@ async def process_webapp_order(message: types.Message, order_data):
     try:
         user = db.query(User).filter(User.telegram_id == message.from_user.id).first()
         if not user or not user.client:
-            await message.answer("❌ Клиент не найден")
+            logger.error("🔥 МАЯЧОК 10: Отправляем уведомление клиенту...")
+        await message.answer("❌ Клиент не найден")
             return
         
         client = user.client
@@ -791,6 +809,7 @@ async def process_webapp_order(message: types.Message, order_data):
         # Сообщение клиенту
         discount_text = f"\n💎 Скидка -{discount_percent}%: -{discount:,.0f}₸" if discount > 0 else ""
         
+        logger.error("🔥 МАЯЧОК 10: Отправляем уведомление клиенту...")
         await message.answer(
             f"✅ <b>Заказ #{order.id} оформлен!</b>\n\n"
             f"📦 Товары:\n{items_text}\n"
@@ -807,6 +826,7 @@ async def process_webapp_order(message: types.Message, order_data):
     except Exception as e:
         logger.error(f"Order processing error: {e}")
         db.rollback()
+        logger.error("🔥 МАЯЧОК 10: Отправляем уведомление клиенту...")
         await message.answer("❌ Ошибка создания заказа")
     finally:
         db.close()
@@ -849,6 +869,7 @@ async def notify_sales_rep_about_order(order, client, items_text, total):
             )
         
         # Уведомление админу
+        logger.error(f"🔥 МАЯЧОК 11: Отправляем админам! ADMIN_IDS={ADMIN_IDS}")
         for admin_id in ADMIN_IDS:
             await bot.send_message(
                 admin_id,
@@ -885,7 +906,8 @@ async def handle_text_message(message: types.Message, state: FSMContext):
                 # Запускаем регистрацию
                 log_analytics_event("registration_started", message.from_user.id, message.from_user.username)
                 await state.set_state(RegistrationStates.waiting_for_company_name)
-                await message.answer(
+                logger.error("🔥 МАЯЧОК 10: Отправляем уведомление клиенту...")
+        await message.answer(
                     "📝 <b>Регистрация (Шаг 1 из 4)</b>\n\n"
                     "Введите название вашей компании:",
                     parse_mode="HTML"
@@ -913,7 +935,8 @@ async def handle_text_message(message: types.Message, state: FSMContext):
                             callback_data="start_registration"
                         )]
                     ])
-                    await message.answer(response, parse_mode="HTML", reply_markup=keyboard)
+                    logger.error("🔥 МАЯЧОК 10: Отправляем уведомление клиенту...")
+        await message.answer(response, parse_mode="HTML", reply_markup=keyboard)
                     
                     log_analytics_event(
                         "pre_registration_message",
@@ -921,16 +944,19 @@ async def handle_text_message(message: types.Message, state: FSMContext):
                         message.from_user.username
                     )
                 else:
-                    await message.answer(response, parse_mode="HTML")
+                    logger.error("🔥 МАЯЧОК 10: Отправляем уведомление клиенту...")
+        await message.answer(response, parse_mode="HTML")
                     
             except Exception as e:
                 logger.error(f"AI error: {e}")
-                await message.answer(
+                logger.error("🔥 МАЯЧОК 10: Отправляем уведомление клиенту...")
+        await message.answer(
                     "Извините, возникла ошибка. Попробуйте еще раз или свяжитесь с менеджером.",
                     reply_markup=get_start_keyboard(is_registered)
                 )
         else:
-            await message.answer(
+            logger.error("🔥 МАЯЧОК 10: Отправляем уведомление клиенту...")
+        await message.answer(
                 "Используйте кнопки меню для навигации 👇",
                 reply_markup=get_start_keyboard(is_registered)
             )
@@ -1095,7 +1121,8 @@ async def menu_catalog(message: types.Message):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🛒 Открыть каталог", web_app=WebAppInfo(url=WEBAPP_URL))]
     ])
-    await message.answer("Нажмите кнопку ниже чтобы открыть каталог:", reply_markup=keyboard)
+    logger.error("🔥 МАЯЧОК 10: Отправляем уведомление клиенту...")
+        await message.answer("Нажмите кнопку ниже чтобы открыть каталог:", reply_markup=keyboard)
 
 @dp.message(F.text == "👤 Профиль")
 
@@ -1106,7 +1133,8 @@ async def show_profile(message: types.Message):
         user = db.query(User).filter(User.telegram_id == message.from_user.id).first()
         
         if not user or not user.client:
-            await message.answer("❌ Профиль не найден")
+            logger.error("🔥 МАЯЧОК 10: Отправляем уведомление клиенту...")
+        await message.answer("❌ Профиль не найден")
             return
         
         client = user.client
@@ -1124,6 +1152,7 @@ async def show_profile(message: types.Message):
         else:
             profile_text += "\n🎁 Доступна скидка на первый заказ!"
         
+        logger.error("🔥 МАЯЧОК 10: Отправляем уведомление клиенту...")
         await message.answer(profile_text, parse_mode="HTML")
     finally:
         db.close()
@@ -1135,7 +1164,8 @@ async def menu_profile(message: types.Message):
 
 async def show_orders(message: types.Message):
     """Показать заказы клиента"""
-    await message.answer(
+    logger.error("🔥 МАЯЧОК 10: Отправляем уведомление клиенту...")
+        await message.answer(
         "📦 <b>Ваши заказы</b>\n\n"
         "История заказов временно недоступна.\n"
         "Для уточнения статуса заказа свяжитесь с менеджером.",
