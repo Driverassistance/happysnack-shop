@@ -116,7 +116,7 @@ function loadPageData(pageId) {
             loadSalesReps();
             break;
         case 'ai':
-            // loadAIStats(); // TODO: Implement AI stats
+            // // loadAIStats(); // TODO: Implement AI stats // TODO: Implement AI stats
             loadAIConversations();
             break;    
         case 'settings':
@@ -651,7 +651,7 @@ async function importProducts(file) {
 // AI AGENT DASHBOARD
 // ============================================
 
-// async function loadAIStats() {
+// // async function loadAIStats() {
     try {
         const stats = await apiFetch('/api/ai/stats?days=7');
         document.getElementById('aiTotalConversations').textContent = stats.conversations.total;
