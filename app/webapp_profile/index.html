@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Личный кабинет - HappySnack</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="profile.css">
+</head>
+<body>
+    <!-- Прелоадер -->
+    <div id="loader" class="loader">
+        <div class="loader-spinner"></div>
+        <p>Загружаем кабинет...</p>
+    </div>
+
+    <!-- Шапка -->
+    <header class="profile-header">
+        <div class="header-content">
+            <div class="user-info">
+                <div class="avatar">🏪</div>
+                <div>
+                    <h2 id="companyName">Загрузка...</h2>
+                    <span id="userStatus" class="status-badge">⭐ Золотой</span>
+                </div>
+            </div>
+            <div class="bonus-display">
+                <div class="bonus-label">Бонусы</div>
+                <div id="bonusBalance" class="bonus-amount">0₸</div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Навигация -->
+    <nav class="tabs">
+        <button class="tab active" data-tab="home">🏠 Главная</button>
+        <button class="tab" data-tab="orders">📦 Заказы</button>
+        <button class="tab" data-tab="favorites">⭐ Избранное</button>
+        <button class="tab" data-tab="feedback">💭 Отзыв</button>
+    </nav>
+
+    <!-- Контент -->
+    <main class="content">
+        <!-- Вкладка: Главная -->
+        <section id="tab-home" class="tab-content active">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">📦</div>
+                    <div class="stat-value" id="ordersCount">0</div>
+                    <div class="stat-label">Заказов</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">💳</div>
+                    <div class="stat-value" id="totalSpent">0₸</div>
+                    <div class="stat-label">Потрачено</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">💸</div>
+                    <div class="stat-value" id="totalSaved">0₸</div>
+                    <div class="stat-label">Экономия</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>🔥 Быстрые действия</h3>
+                <div class="action-buttons">
+                    <button class="action-btn" id="repeatLastOrder">
+                        <span class="btn-icon">🔄</span>
+                        Повторить последний заказ
+                    </button>
+                    <button class="action-btn" id="gotoCatalog">
+                        <span class="btn-icon">🛒</span>
+                        В каталог
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Вкладка: Заказы -->
+        <section id="tab-orders" class="tab-content">
+            <div class="orders-filter">
+                <button class="filter-btn active" data-status="all">Все</button>
+                <button class="filter-btn" data-status="pending">В работе</button>
+                <button class="filter-btn" data-status="delivered">Доставлены</button>
+            </div>
+            <div id="ordersList" class="orders-list">
+                <p class="loading">Загрузка заказов...</p>
+            </div>
+        </section>
+
+        <!-- Вкладка: Избранное -->
+        <section id="tab-favorites" class="tab-content">
+            <h3>📌 Часто заказываете</h3>
+            <div id="favoritesList" class="favorites-list">
+                <p class="loading">Загрузка...</p>
+            </div>
+        </section>
+
+        <!-- Вкладка: Отзыв -->
+        <section id="tab-feedback" class="tab-content">
+            <div class="feedback-section">
+                <h3>💭 Поделитесь мнением</h3>
+                <p>Ваше мнение помогает нам становиться лучше!</p>
+                
+                <div class="feedback-card">
+                    <h4>💡 Быстрый отзыв</h4>
+                    <p>+500₸ бонусов</p>
+                    <textarea id="quickFeedback" placeholder="Что думаете о нашем сервисе?" rows="3"></textarea>
+                    <button class="submit-btn" id="submitQuickFeedback">Отправить</button>
+                </div>
+
+                <div class="feedback-card">
+                    <h4>🎯 Есть идея?</h4>
+                    <p>+1000₸ бонусов за идею!</p>
+                    <textarea id="ideaText" placeholder="Поделитесь своей идеей для улучшения..." rows="3"></textarea>
+                    <button class="submit-btn" id="submitIdea">Отправить идею</button>
+                </div>
+
+                <div id="surveySection" class="feedback-card">
+                    <h4>📋 Месячный опрос</h4>
+                    <p>+1000₸ бонусов • 2 минуты</p>
+                    <button class="submit-btn" id="startSurvey">Пройти опрос</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="profile.js"></script>
+</body>
+</html>

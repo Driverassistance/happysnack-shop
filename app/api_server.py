@@ -806,6 +806,386 @@ async def add_sales_rep(request):
 # СОЗДАНИЕ ПРИЛОЖЕНИЯ И МАРШРУТЫ
 # ============================================
 
+
+# ============================================
+# ЛИЧНЫЙ КАБИНЕТ КЛИЕНТА - API ENDPOINTS
+# ============================================
+
+async def get_client_profile(request):
+    """Получить профиль клиента"""
+    try:
+        user_id = int(request.query.get('user_id'))
+        db = SessionLocal()
+        
+        user = db.query(User).filter(User.telegram_id == user_id).first()
+        if not user or not user.client:
+            db.close()
+            return web.json_response({'error': 'Client not found'}, status=404)
+        
+        client = user.client
+        
+        # Определяем статус
+        total_spent = db.query(func.sum(Order.total_amount)).filter(
+            Order.client_id == client.id
+        ).scalar() or 0
+        
+        if total_spent >= 500000:
+            status = 'platinum'
+            status_name = 'Платиновый'
+        elif total_spent >= 200000:
+            status = 'gold'
+            status_name = 'Золотой'
+        elif total_spent >= 50000:
+            status = 'silver'
+            status_name = 'Серебряный'
+        else:
+            status = 'bronze'
+            status_name = 'Бронзовый'
+        
+        # Количество заказов
+        orders_count = db.query(func.count(Order.id)).filter(
+            Order.client_id == client.id
+        ).scalar() or 0
+        
+        # Экономия
+        total_discount = db.query(func.sum(Order.discount_amount)).filter(
+            Order.client_id == client.id
+        ).scalar() or 0
+        
+        profile_data = {
+            'company_name': client.company_name,
+            'phone': client.contact_phone,
+            'address': client.address,
+            'bonus_balance': float(client.bonus_balance),
+            'status': status,
+            'status_name': status_name,
+            'orders_count': orders_count,
+            'total_spent': float(total_spent),
+            'total_saved': float(total_discount)
+        }
+        
+        db.close()
+        return web.json_response(profile_data)
+        
+    except Exception as e:
+        print(f"API Error: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+async def get_client_orders(request):
+    """Получить заказы клиента"""
+    try:
+        user_id = int(request.query.get('user_id'))
+        limit = int(request.query.get('limit', 20))
+        status = request.query.get('status')
+        
+        db = SessionLocal()
+        
+        user = db.query(User).filter(User.telegram_id == user_id).first()
+        if not user or not user.client:
+            db.close()
+            return web.json_response({'error': 'Client not found'}, status=404)
+        
+        query = db.query(Order).filter(Order.client_id == user.client.id)
+        
+        if status:
+            query = query.filter(Order.status == status)
+        
+        orders = query.order_by(desc(Order.created_at)).limit(limit).all()
+        
+        orders_data = []
+        for order in orders:
+            items = db.query(OrderItem).filter(OrderItem.order_id == order.id).all()
+            
+            orders_data.append({
+                'id': order.id,
+                'created_at': order.created_at.isoformat() if order.created_at else None,
+                'status': order.status,
+                'total_amount': float(order.total_amount),
+                'discount_amount': float(order.discount_amount),
+                'items_count': len(items),
+                'items': [
+                    {
+                        'product_id': item.product_id,
+                        'product_name': item.product.name if item.product else 'Удален',
+                        'quantity': item.quantity,
+                        'price': float(item.price)
+                    }
+                    for item in items
+                ]
+            })
+        
+        db.close()
+        return web.json_response(orders_data)
+        
+    except Exception as e:
+        print(f"API Error: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+async def repeat_order(request):
+    """Повторить заказ - возвращает товары для добавления в корзину"""
+    try:
+        order_id = int(request.match_info['id'])
+        db = SessionLocal()
+        
+        order = db.query(Order).filter(Order.id == order_id).first()
+        if not order:
+            db.close()
+            return web.json_response({'error': 'Order not found'}, status=404)
+        
+        items = db.query(OrderItem).filter(OrderItem.order_id == order_id).all()
+        
+        cart_items = []
+        for item in items:
+            if item.product and item.product.is_active and item.product.stock > 0:
+                cart_items.append({
+                    'product_id': item.product_id,
+                    'name': item.product.name,
+                    'price': float(item.product.price),
+                    'quantity': item.quantity
+                })
+        
+        db.close()
+        return web.json_response({'cart': cart_items})
+        
+    except Exception as e:
+        print(f"API Error: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+async def get_client_favorites(request):
+    """Получить избранные товары клиента"""
+    try:
+        user_id = int(request.query.get('user_id'))
+        db = SessionLocal()
+        
+        user = db.query(User).filter(User.telegram_id == user_id).first()
+        if not user or not user.client:
+            db.close()
+            return web.json_response({'error': 'Client not found'}, status=404)
+        
+        # Топ 10 товаров по количеству заказов
+        top_products = db.query(
+            Product.id,
+            Product.name,
+            Product.price,
+            Product.stock,
+            func.sum(OrderItem.quantity).label('total_ordered')
+        ).join(OrderItem).join(Order).filter(
+            Order.client_id == user.client.id,
+            Product.is_active == True
+        ).group_by(Product.id, Product.name, Product.price, Product.stock).order_by(
+            desc('total_ordered')
+        ).limit(10).all()
+        
+        favorites = [
+            {
+                'product_id': p[0],
+                'name': p[1],
+                'price': float(p[2]),
+                'stock': p[3],
+                'total_ordered': p[4]
+            }
+            for p in top_products
+        ]
+        
+        db.close()
+        return web.json_response(favorites)
+        
+    except Exception as e:
+        print(f"API Error: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+async def get_client_stats(request):
+    """Получить статистику клиента"""
+    try:
+        user_id = int(request.query.get('user_id'))
+        db = SessionLocal()
+        
+        user = db.query(User).filter(User.telegram_id == user_id).first()
+        if not user or not user.client:
+            db.close()
+            return web.json_response({'error': 'Client not found'}, status=404)
+        
+        client = user.client
+        
+        # Общая статистика
+        total_orders = db.query(func.count(Order.id)).filter(
+            Order.client_id == client.id
+        ).scalar() or 0
+        
+        total_spent = db.query(func.sum(Order.total_amount)).filter(
+            Order.client_id == client.id
+        ).scalar() or 0
+        
+        total_saved = db.query(func.sum(Order.discount_amount)).filter(
+            Order.client_id == client.id
+        ).scalar() or 0
+        
+        avg_order = float(total_spent / total_orders) if total_orders > 0 else 0
+        
+        # Топ 5 товаров
+        top_products = db.query(
+            Product.name,
+            func.sum(OrderItem.quantity).label('total_qty')
+        ).join(OrderItem).join(Order).filter(
+            Order.client_id == client.id
+        ).group_by(Product.id, Product.name).order_by(
+            desc('total_qty')
+        ).limit(5).all()
+        
+        stats_data = {
+            'total_orders': total_orders,
+            'total_spent': float(total_spent),
+            'total_saved': float(total_saved),
+            'avg_order': avg_order,
+            'top_products': [
+                {'name': p[0], 'quantity': p[1]}
+                for p in top_products
+            ]
+        }
+        
+        db.close()
+        return web.json_response(stats_data)
+        
+    except Exception as e:
+        print(f"API Error: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+async def submit_feedback(request):
+    """Отправить отзыв/идею"""
+    try:
+        data = await request.json()
+        user_id = int(data.get('user_id'))
+        feedback_type = data.get('type')  # 'feedback', 'idea', 'complaint'
+        text = data.get('text')
+        rating = data.get('rating')
+        
+        db = SessionLocal()
+        
+        user = db.query(User).filter(User.telegram_id == user_id).first()
+        if not user or not user.client:
+            db.close()
+            return web.json_response({'error': 'Client not found'}, status=404)
+        
+        # Начисляем бонусы
+        bonus = 500 if feedback_type == 'feedback' else 1000 if feedback_type == 'idea' else 0
+        
+        if bonus > 0:
+            user.client.bonus_balance += bonus
+            db.commit()
+        
+        # TODO: Сохранить отзыв в БД (добавить таблицу Feedback)
+        
+        db.close()
+        return web.json_response({
+            'success': True,
+            'bonus_added': bonus,
+            'message': f'Спасибо! +{bonus}₸ бонусов начислено'
+        })
+        
+    except Exception as e:
+        print(f"API Error: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+async def get_current_survey(request):
+    """Получить текущий опрос для клиента"""
+    try:
+        user_id = int(request.query.get('user_id'))
+        
+        # Простой месячный опрос
+        from datetime import datetime
+        current_month = datetime.utcnow().strftime('%B %Y')
+        
+        survey = {
+            'id': f'monthly_{datetime.utcnow().strftime("%Y%m")}',
+            'title': f'Опрос {current_month}',
+            'bonus': 1000,
+            'questions': [
+                {
+                    'id': 'q1',
+                    'text': 'Что добавить в ассортимент?',
+                    'type': 'multiple_choice',
+                    'options': ['Шоколад', 'Больше напитков', 'Печенье', 'Другое']
+                },
+                {
+                    'id': 'q2',
+                    'text': 'Что улучшить?',
+                    'type': 'multiple_choice',
+                    'options': ['Быстрее доставка', 'Больше скидок', 'Упаковка', 'Другое']
+                },
+                {
+                    'id': 'q3',
+                    'text': 'Оцените работу за месяц',
+                    'type': 'rating',
+                    'max': 5
+                },
+                {
+                    'id': 'q4',
+                    'text': 'Комментарий (необязательно)',
+                    'type': 'text',
+                    'required': False
+                }
+            ]
+        }
+        
+        return web.json_response(survey)
+        
+    except Exception as e:
+        print(f"API Error: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+async def submit_survey(request):
+    """Отправить заполненный опрос"""
+    try:
+        data = await request.json()
+        user_id = int(data.get('user_id'))
+        survey_id = data.get('survey_id')
+        answers = data.get('answers')
+        
+        db = SessionLocal()
+        
+        user = db.query(User).filter(User.telegram_id == user_id).first()
+        if not user or not user.client:
+            db.close()
+            return web.json_response({'error': 'Client not found'}, status=404)
+        
+        # Начисляем бонусы
+        user.client.bonus_balance += 1000
+        db.commit()
+        
+        # TODO: Сохранить ответы в БД
+        
+        db.close()
+        return web.json_response({
+            'success': True,
+            'bonus_added': 1000,
+            'message': 'Спасибо за участие! +1000₸ бонусов'
+        })
+        
+    except Exception as e:
+        print(f"API Error: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+
+async def serve_profile_webapp(request):
+    """Отдать файлы личного кабинета"""
+    file_path = request.match_info.get('path', 'index.html')
+    
+    if file_path == '':
+        file_path = 'index.html'
+    
+    try:
+        with open(f'webapp_profile/{file_path}', 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        content_type = 'text/html'
+        if file_path.endswith('.js'):
+            content_type = 'application/javascript'
+        elif file_path.endswith('.css'):
+            content_type = 'text/css'
+        
+        return web.Response(text=content, content_type=content_type)
+    except FileNotFoundError:
+        return web.Response(status=404)
+
 def create_app():
     app = web.Application()
     
@@ -846,6 +1226,20 @@ def create_app():
     app.router.add_get('/api/admin/sales_reps', get_sales_reps)
     app.router.add_post('/api/admin/sales_reps', add_sales_rep)
     app.router.add_put('/api/admin/sales_reps/{id}', update_sales_rep)
+    
+    # Client Profile API
+    app.router.add_get('/api/client/profile', get_client_profile)
+    app.router.add_get('/api/client/orders', get_client_orders)
+    app.router.add_post('/api/client/orders/{id}/repeat', repeat_order)
+    app.router.add_get('/api/client/favorites', get_client_favorites)
+    app.router.add_get('/api/client/stats', get_client_stats)
+    app.router.add_post('/api/client/feedback', submit_feedback)
+    app.router.add_get('/api/client/surveys/current', get_current_survey)
+    app.router.add_post('/api/client/surveys/submit', submit_survey)
+    
+    # Profile WebApp
+    app.router.add_get('/profile/', serve_profile_webapp)
+    app.router.add_get('/profile/{path:.*}', serve_profile_webapp)
     
     # Dashboard static files
     app.router.add_static('/admin', 'static/admin', name='admin')

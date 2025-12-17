@@ -681,6 +681,31 @@ async def callback_approve_client(callback: types.CallbackQuery):
 # ОБРАБОТКА WEBAPP
 # ============================================
 
+
+@dp.message(F.text == "👤 Мой кабинет")
+async def profile_button(message: types.Message):
+    """Открыть личный кабинет"""
+    webapp_url = f"{os.getenv('WEBAPP_URL', 'https://happysnack-app.onrender.com')}/profile/"
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text="👤 Открыть личный кабинет",
+            web_app=WebAppInfo(url=webapp_url)
+        )]
+    ])
+    
+    await message.answer(
+        "👤 <b>Личный кабинет</b>\n\n"
+        "Здесь вы можете:\n"
+        "• Посмотреть историю заказов\n"
+        "• Проверить баланс бонусов\n"
+        "• Повторить заказ за 1 клик\n"
+        "• Посмотреть избранные товары\n"
+        "• Поделиться отзывом",
+        reply_markup=keyboard,
+        parse_mode="HTML"
+    )
+
 @dp.message(F.web_app_data)
 async def handle_webapp_data(message: types.Message):
     logger.warning("🔥 WEBAPP HANDLER FIRED")
