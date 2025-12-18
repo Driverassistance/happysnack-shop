@@ -261,6 +261,7 @@ async def cmd_stats(message: types.Message):
         return
     
     if not ANALYTICS_ENABLED:
+        await message.answer("📊 Аналитика отключена")
         return
     
     db = SessionLocal()
@@ -306,7 +307,7 @@ async def cmd_stats(message: types.Message):
             f"• На модерации: {pending_clients}\n"
         )
         
-        await message.answer(
+        await message.answer(stats_text, parse_mode="HTML")
         
     finally:
         db.close()
@@ -318,7 +319,7 @@ async def cmd_broadcast(message: types.Message, state: FSMContext):
         return
     
     await state.set_state(BroadcastStates.waiting_for_message)
-        await message.answer(
+    await message.answer(
         "📢 <b>Массовая рассылка</b>\n\n"
         "Напишите текст сообщения которое хотите отправить всем активным клиентам:",
         parse_mode="HTML"
@@ -336,7 +337,7 @@ async def broadcast_get_message(message: types.Message, state: FSMContext):
         ]
     ])
     
-        await message.answer(
+    await message.answer("Добавить фото к сообщению?", reply_markup=keyboard)
 
 @dp.callback_query(F.data == "broadcast_add_photo")
 async def broadcast_add_photo(callback: types.CallbackQuery, state: FSMContext):
@@ -374,7 +375,7 @@ async def show_broadcast_confirmation(message: types.Message, state: FSMContext)
         ]
     ])
     
-        await message.answer(
+    await message.answer(
         f"📢 <b>Подтверждение рассылки</b>\n\n"
         f"Получателей: <b>{active_clients}</b> активных клиентов\n\n"
         f"Текст:\n{broadcast_text}\n\n"
@@ -481,7 +482,7 @@ async def process_company_name(message: types.Message, state: FSMContext):
     await state.update_data(company_name=message.text)
     await state.set_state(RegistrationStates.waiting_for_bin_iin)
     
-        await message.answer(
+    await message.answer(
         "📝 <b>Регистрация (Шаг 2 из 4)</b>\n\n"
         "Введите БИН вашей компании (12 цифр):",
         parse_mode="HTML"
@@ -502,7 +503,7 @@ async def process_bin(message: types.Message, state: FSMContext):
     await state.update_data(bin_iin=bin_iin)
     await state.set_state(RegistrationStates.waiting_for_address)
     
-        await message.answer(
+    await message.answer(
         "📝 <b>Регистрация (Шаг 3 из 4)</b>\n\n"
         "Введите адрес вашей компании:",
         parse_mode="HTML"
@@ -514,7 +515,7 @@ async def process_address(message: types.Message, state: FSMContext):
     await state.update_data(address=message.text)
     await state.set_state(RegistrationStates.waiting_for_phone)
     
-        await message.answer(
+    await message.answer(
         "📝 <b>Регистрация (Шаг 4 из 4)</b>\n\n"
         "Введите контактный телефон:\n"
         "Например: +7 777 123 45 67",
@@ -693,7 +694,7 @@ async def profile_button(message: types.Message):
         )]
     ])
     
-        await message.answer(
+    await message.answer(
         "👤 <b>Личный кабинет</b>\n\n"
         "Здесь вы можете:\n"
         "• Посмотреть историю заказов\n"
@@ -719,7 +720,7 @@ async def handle_webapp_data(message: types.Message):
             
     except Exception as e:
         logger.error(f"WebApp data error: {e}")
-        await message.answer(
+        await message.answer("❌ Ошибка обработки заказа")
 
 async def process_webapp_order(message: types.Message, order_data):
     """Обработка заказа из webapp"""
@@ -727,7 +728,7 @@ async def process_webapp_order(message: types.Message, order_data):
     try:
         user = db.query(User).filter(User.telegram_id == message.from_user.id).first()
         if not user or not user.client:
-        await message.answer(
+            await message.answer("❌ Клиент не найден")
             return
         
         client = user.client
@@ -806,7 +807,7 @@ async def process_webapp_order(message: types.Message, order_data):
     except Exception as e:
         logger.error(f"Order processing error: {e}")
         db.rollback()
-        await message.answer(
+        await message.answer("❌ Ошибка создания заказа")
     finally:
         db.close()
 
@@ -884,7 +885,7 @@ async def handle_text_message(message: types.Message, state: FSMContext):
                 # Запускаем регистрацию
                 log_analytics_event("registration_started", message.from_user.id, message.from_user.username)
                 await state.set_state(RegistrationStates.waiting_for_company_name)
-        await message.answer(
+                await message.answer(
                     "📝 <b>Регистрация (Шаг 1 из 4)</b>\n\n"
                     "Введите название вашей компании:",
                     parse_mode="HTML"
@@ -912,7 +913,7 @@ async def handle_text_message(message: types.Message, state: FSMContext):
                             callback_data="start_registration"
                         )]
                     ])
-        await message.answer(
+                    await message.answer(response, parse_mode="HTML", reply_markup=keyboard)
                     
                     log_analytics_event(
                         "pre_registration_message",
@@ -920,16 +921,16 @@ async def handle_text_message(message: types.Message, state: FSMContext):
                         message.from_user.username
                     )
                 else:
-        await message.answer(
+                    await message.answer(response, parse_mode="HTML")
                     
             except Exception as e:
                 logger.error(f"AI error: {e}")
-        await message.answer(
+                await message.answer(
                     "Извините, возникла ошибка. Попробуйте еще раз или свяжитесь с менеджером.",
                     reply_markup=get_start_keyboard(is_registered)
                 )
         else:
-        await message.answer(
+            await message.answer(
                 "Используйте кнопки меню для навигации 👇",
                 reply_markup=get_start_keyboard(is_registered)
             )
@@ -1094,7 +1095,7 @@ async def menu_catalog(message: types.Message):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🛒 Открыть каталог", web_app=WebAppInfo(url=WEBAPP_URL))]
     ])
-        await message.answer(
+    await message.answer("Нажмите кнопку ниже чтобы открыть каталог:", reply_markup=keyboard)
 
 @dp.message(F.text == "👤 Профиль")
 
@@ -1105,7 +1106,7 @@ async def show_profile(message: types.Message):
         user = db.query(User).filter(User.telegram_id == message.from_user.id).first()
         
         if not user or not user.client:
-        await message.answer(
+            await message.answer("❌ Профиль не найден")
             return
         
         client = user.client
@@ -1123,7 +1124,7 @@ async def show_profile(message: types.Message):
         else:
             profile_text += "\n🎁 Доступна скидка на первый заказ!"
         
-        await message.answer(
+        await message.answer(profile_text, parse_mode="HTML")
     finally:
         db.close()
 
@@ -1134,7 +1135,7 @@ async def menu_profile(message: types.Message):
 
 async def show_orders(message: types.Message):
     """Показать заказы клиента"""
-        await message.answer(
+    await message.answer(
         "📦 <b>Ваши заказы</b>\n\n"
         "История заказов временно недоступна.\n"
         "Для уточнения статуса заказа свяжитесь с менеджером.",
