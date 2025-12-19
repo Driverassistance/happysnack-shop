@@ -1,12 +1,3 @@
-
-// ===== NAVIGATION =====
-    const loader = document.getElementById('dashboard-loader');
-    if (loader) {
-        loader.classList.add('hidden');
-        setTimeout(() => loader.remove(), 300);
-    }
-}
-
 /**
  * HappySnack Admin Dashboard
  * Версия с централизованной функцией apiFetch для всех запросов.
