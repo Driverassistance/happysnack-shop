@@ -1,3 +1,26 @@
+
+// ===== NAVIGATION =====
+function showPage(pageId) {
+    document.querySelectorAll('.page').forEach(page => {
+        page.classList.remove('active');
+    });
+    
+    const targetPage = document.getElementById(pageId);
+    if (targetPage) {
+        targetPage.classList.add('active');
+        
+        switch(pageId) {
+            case 'dashboard': loadDashboard(); break;
+            case 'products': loadProducts(); break;
+            case 'categories': loadCategories(); break;
+            case 'clients': loadClients(); break;
+            case 'orders': loadOrders(); break;
+            case 'sales-reps': loadSalesReps(); break;
+            case 'settings': loadSettings(); break;
+        }
+    }
+}
+
 // Скрыть прелоадер
 function hideDashboardLoader() {
     const loader = document.getElementById('dashboard-loader');
