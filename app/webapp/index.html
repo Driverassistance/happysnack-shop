@@ -558,6 +558,60 @@
       tg.MainButton.show();
       tg.MainButton.enable();
     }
+	// Обработчик кнопки "Оформить заказ"
+        tg.MainButton.onClick(async () => {
+            const itemCount = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
+            
+            if (itemCount === 0) {
+                tg.showAlert("Корзина пуста!");
+                return;
+            }
+            
+            tg.MainButton.showProgress();
+            
+            try {
+                const orderData = {
+                    user_id: tg.initDataUnsafe.user?.id,
+                    cart: cart,
+                    payment_method: 'cash',
+                    notes: ''
+                };
+                
+                console.log('Отправляем заказ:', orderData);
+                
+                const response = await fetch(`${API_BASE}/api/orders/create`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(orderData)
+                });
+                
+                console.log('Ответ сервера:', response.status);
+                const result = await response.json();
+                console.log('Данные:', result);
+                
+                if (response.ok && result.success) {
+                    tg.showAlert(
+                        `✅ Заказ #${result.order_id} принят!\n\n` +
+                        `💰 Сумма: ${result.total.toLocaleString()}₸\n` +
+                        `🎁 Бонусов: +${result.bonus_earned.toLocaleString()}₸`
+                    );
+                    
+                    cart = {};
+                    updateCartSummary();
+                    renderProducts();
+                    
+                    setTimeout(() => tg.close(), 2000);
+                } else {
+                    throw new Error(result.error || 'Ошибка создания заказа');
+                }
+                
+            } catch (error) {
+                console.error('Ошибка заказа:', error);
+                tg.showAlert('❌ Ошибка: ' + error.message);
+            } finally {
+                tg.MainButton.hideProgress();
+            }
+        });
   }
 
   // Search (не ломаем)
