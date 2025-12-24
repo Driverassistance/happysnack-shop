@@ -45,7 +45,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Конфигурация
-TOKEN = os.getenv("BOT_TOKEN")
+from config import settings
+TOKEN = settings.BOT_TOKEN
 ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x]
 DATABASE_URL = os.getenv("DATABASE_URL")
 WEBAPP_URL = os.getenv("WEBAPP_URL", "https://your-domain.com")
