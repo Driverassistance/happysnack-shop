@@ -257,7 +257,6 @@
             cursor: pointer;
         }
     
-    /* Прелоадер */
     #loader {
         position: fixed;
         top: 0;
@@ -299,7 +298,6 @@
         100% { transform: rotate(360deg); }
     }
     
-    /* Скрываем контент пока грузится */
     body.loading #app {
         opacity: 0;
     }
@@ -350,7 +348,8 @@
     </button>
 
    <script>
-  // ===== ПРЕЛОАДЕР =====
+    const API_BASE = '/api';
+  
   function hideLoader() {
     const loader = document.getElementById("loader");
     document.body.classList.remove("loading");
@@ -361,7 +360,6 @@
     }
   }
 
-  // ===== SAFE TELEGRAM INIT =====
   function getTg() {
     try {
       return window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
@@ -371,7 +369,6 @@
   }
 
   let tg = null;
-
   let products = [];
   let categories = [];
   let cart = {};
@@ -379,7 +376,6 @@
   let isFirstOrder = false;
   let deferredPrompt = null;
 
-  // PWA Install
   window.addEventListener("beforeinstallprompt", (e) => {
     e.preventDefault();
     deferredPrompt = e;
@@ -397,7 +393,6 @@
     });
   };
 
-  // Service Worker (не критично)
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker
       .register("/service-worker.js")
@@ -405,7 +400,6 @@
       .catch((err) => console.log("SW failed", err));
   }
 
-  // ===== UI HELPERS =====
   function formatPrice(price) {
     return new Intl.NumberFormat("ru-RU").format(Math.round(price || 0));
   }
@@ -444,8 +438,7 @@
     const container = document.getElementById("categories");
     if (!container) return;
 
-    // очистим чипы, кроме "all"
-    container.innerHTML = `<div class="category-chip active" data-category="all">Все товары</div>`;
+    container.innerHTML = '<div class="category-chip active" data-category="all">Все товары</div>';
     const allChip = container.querySelector('[data-category="all"]');
     if (allChip) allChip.onclick = () => filterByCategory("all");
 
@@ -460,48 +453,51 @@
   }
 
   function renderProducts() {
-    const container = document.getElementById("products");
-    if (!container) return;
+    const productsContainer = document.getElementById('products');
 
-    const filtered =
-      currentCategory === "all"
-        ? products
-        : products.filter((p) => String(p.category_id) === String(currentCategory));
-
-    if (!filtered.length) {
-      container.innerHTML =
-        '<div class="empty-state"><div class="empty-state-icon">📭</div><p>Товары не найдены</p></div>';
-      return;
+    if (!products || !products.length) {
+        productsContainer.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">🔍</div>
+          <p>Товары не найдены</p>
+        </div>`;
+        return;
     }
 
-    container.innerHTML = filtered
-      .map(
-        (product) => `
-        <div class="product-card">
-          ${
-            product.photo_url
-              ? `<img src="${product.photo_url}" class="product-image" alt="${product.name}">`
-              : `<div class="product-image placeholder">📦</div>`
+    const activeCategory = currentCategory;
+
+    productsContainer.innerHTML = products.map(product => {
+        if (activeCategory !== 'all' && product.category_id != activeCategory) {
+            return '';
+        }
+
+        const count = cart[product.id] || 0;
+
+        return `
+      <div class="product-card">
+        <div class="product-image-container">
+          ${product.photo_url 
+            ? '<img src="' + product.photo_url + '" alt="' + product.name + '" class="product-image" loading="lazy">'
+            : '<div class="no-image">📷</div>'
           }
-          <div class="product-info">
-            <div class="product-name">${product.name}</div>
-            <div class="product-price">${formatPrice(product.price)}₸</div>
-            <div class="product-stock">Остаток: ${product.stock} шт</div>
-          </div>
-          <div class="product-actions">
-            <div class="qty-control">
-              <button class="qty-btn" onclick="changeQty(${product.id}, -1)">−</button>
-              <div class="qty-display" id="qty-${product.id}">${cart[product.id] || 0}</div>
-              <button class="qty-btn" onclick="changeQty(${product.id}, 1)">+</button>
-            </div>
-          </div>
+          ${count > 0 ? '<div class="product-badge">' + count + '</div>' : ''}
         </div>
-      `
-      )
-      .join("");
+        <div class="product-info">
+          <div class="product-header">
+            <h3 class="product-title">${product.name}</h3>
+            <span class="product-price">${parseInt(product.price).toLocaleString()} ₸</span>
+          </div>
+          
+          ${count === 0 
+            ? '<button class="add-btn" onclick="changeQty(' + product.id + ', 1)">Добавить</button>'
+            : '<div class="counter-controls"><button class="counter-btn" onclick="changeQty(' + product.id + ', -1)">−</button><span class="counter-value">' + count + '</span><button class="counter-btn" onclick="changeQty(' + product.id + ', 1)">+</button></div>'
+          }
+        </div>
+      </div>`;
+    }).join('');
 
     updateCartDisplay();
-  }
+}
 
   function filterByCategory(categoryId) {
     currentCategory = categoryId;
@@ -558,63 +554,8 @@
       tg.MainButton.show();
       tg.MainButton.enable();
     }
-	// Обработчик кнопки "Оформить заказ"
-        tg.MainButton.onClick(async () => {
-            const itemCount = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
-            
-            if (itemCount === 0) {
-                tg.showAlert("Корзина пуста!");
-                return;
-            }
-            
-            tg.MainButton.showProgress();
-            
-            try {
-                const orderData = {
-                    user_id: tg.initDataUnsafe.user?.id,
-                    cart: cart,
-                    payment_method: 'cash',
-                    notes: ''
-                };
-                
-                console.log('Отправляем заказ:', orderData);
-                
-                const response = await fetch(`${API_BASE}/api/orders/create`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(orderData)
-                });
-                
-                console.log('Ответ сервера:', response.status);
-                const result = await response.json();
-                console.log('Данные:', result);
-                
-                if (response.ok && result.success) {
-                    tg.showAlert(
-                        `✅ Заказ #${result.order_id} принят!\n\n` +
-                        `💰 Сумма: ${result.total.toLocaleString()}₸\n` +
-                        `🎁 Бонусов: +${result.bonus_earned.toLocaleString()}₸`
-                    );
-                    
-                    cart = {};
-                    updateCartSummary();
-                    renderProducts();
-                    
-                    setTimeout(() => tg.close(), 2000);
-                } else {
-                    throw new Error(result.error || 'Ошибка создания заказа');
-                }
-                
-            } catch (error) {
-                console.error('Ошибка заказа:', error);
-                tg.showAlert('❌ Ошибка: ' + error.message);
-            } finally {
-                tg.MainButton.hideProgress();
-            }
-        });
   }
 
-  // Search (не ломаем)
   const searchInput = document.getElementById("searchInput");
   if (searchInput) {
     searchInput.addEventListener("input", (e) => {
@@ -622,16 +563,14 @@
     });
   }
 
-  // ===== LOAD DATA =====
   async function loadData() {
     console.log("LOAD DATA START");
 
     try {
       let userId = "";
-if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
-  userId = tg.initDataUnsafe.user.id;
-}
-
+      if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
+        userId = tg.initDataUnsafe.user.id;
+      }
 
       const response = await fetch(`/api/catalog?user_id=${userId}`, { cache: "no-store" });
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -649,33 +588,81 @@ if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.
       console.error("Ошибка загрузки:", error);
       const productsEl = document.getElementById("products");
       if (productsEl) {
-        productsEl.innerHTML =
-          '<div class="empty-state"><div class="empty-state-icon">❌</div><p>Ошибка загрузки товаров</p></div>';
+        productsEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">❌</div><p>Ошибка загрузки товаров</p></div>';
       }
     } finally {
       hideLoader();
     }
   }
 
-  // ===== START =====
   function startApp() {
     tg = getTg();
     if (tg) {
       tg.ready();
       tg.expand();
-
-      // MainButton checkout
+      
+      tg.MainButton.onClick(async () => {
+        const itemCount = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
+        
+        if (itemCount === 0) {
+          tg.showAlert("Корзина пуста!");
+          return;
+        }
+        
+        tg.MainButton.showProgress();
+        
+        try {
+          const orderData = {
+            user_id: tg.initDataUnsafe.user?.id,
+            cart: cart,
+            payment_method: 'cash',
+            notes: ''
+          };
+          
+          console.log('Отправляем заказ:', orderData);
+          
+          const response = await fetch(`${API_BASE}/orders/create`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(orderData)
+          });
+          
+          console.log('Ответ сервера:', response.status);
+          const result = await response.json();
+          console.log('Данные:', result);
+          
+          if (response.ok && result.success) {
+            tg.showAlert(
+              `✅ Заказ #${result.order_id} принят!\n\n` +
+              `💰 Сумма: ${result.total.toLocaleString()}₸\n` +
+              `🎁 Бонусов: +${result.bonus_earned.toLocaleString()}₸`
+            );
+            
+            cart = {};
+            updateCartDisplay();
+            renderProducts();
+            
+            setTimeout(() => tg.close(), 2000);
+          } else {
+            throw new Error(result.error || 'Ошибка создания заказа');
+          }
+          
+        } catch (error) {
+          console.error('Ошибка заказа:', error);
+          tg.showAlert('❌ Ошибка: ' + error.message);
+        } finally {
+          tg.MainButton.hideProgress();
+        }
+      });
       
     } else {
       console.warn("Telegram WebApp not detected yet (ok for browser test).");
     }
 
-    // страховка от вечного лоадера
     setTimeout(() => hideLoader(), 8000);
     loadData();
   }
 
-  // запуск после загрузки DOM (чтобы Telegram-скрипт успел)
   document.addEventListener("DOMContentLoaded", startApp);
 </script>
 
