@@ -31,7 +31,6 @@ async def run_api():
     
     logger.info(f"✅ API Server running on port {port}")
     
-    # Держим API запущенным
     await asyncio.Event().wait()
 
 async def main():
@@ -40,20 +39,28 @@ async def main():
     
     # Database initialization
     try:
-            from database import Base, engine
-            # ИМПОРТИРУЕМ ВСЕ МОДЕЛИ чтобы Base знал о них
-            from models.user import User, Client, SalesRepresentative
-            from models.product import Product, Category
-            from models.order import Order, OrderItem
-            from models.bonus import BonusTransaction
-            from models.ai_log import AIConversation, AIProactiveMessage
-            from models.ai_settings import AIAgentSettings
-            
-            Base.metadata.create_all(bind=engine)
-    logger.info("✅ Database tables ready")
-            except Exception as e:
-    logger.error(f"❌ Database init failed: {e}")
-    raise
+        from database import Base, engine
+        from models.user import User, Client, SalesRepresentative
+        from models.product import Product, Category
+        from models.order import Order, OrderItem
+        from models.bonus import BonusTransaction
+        from models.ai_log import AIConversation, AIProactiveMessage
+        from models.ai_settings import AIAgentSettings
+        
+        Base.metadata.create_all(bind=engine)
+        logger.info("✅ Database tables ready")
+    except Exception as e:
+        logger.error(f"❌ Database init failed: {e}")
+        raise
+    
+    try:
+        await asyncio.gather(
+            run_bot(),
+            run_api()
+        )
+    except Exception as e:
+        logger.error(f"❌ Error: {e}")
+        raise
 
 if __name__ == "__main__":
     asyncio.run(main())
