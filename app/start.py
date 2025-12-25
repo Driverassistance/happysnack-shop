@@ -35,6 +35,15 @@ async def run_api():
     await asyncio.Event().wait()
 
 async def main():
+    # Database initialization
+    try:
+        from database import Base, engine
+        Base.metadata.create_all(bind=engine)
+        logger.info("✅ Database tables ready")
+    except Exception as e:
+        logger.error(f"❌ Database init failed: {e}")
+        raise
+
     """Запуск бота и API одновременно"""
     logger.info("🚀 Starting HappySnack unified service...")
     
