@@ -12,12 +12,13 @@ DATABASE_URL = os.getenv(
     "sqlite:///./shop.db"
 )
 
-# Render.com даёт postgres://, но SQLAlchemy нужен postgresql://
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
-elif DATABASE_URL.startswith("postgresql://"):
-    # Явно указываем драйвер psycopg (версия 3)
-    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
+# Принудительно меняем на psycopg (v3) для ЛЮБОГО postgresql URL
+if "postgres" in DATABASE_URL:
+    # Удаляем старые префиксы
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg://")
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://")
+    # На всякий случай убираем дубликаты
+    DATABASE_URL = DATABASE_URL.replace("postgresql+psycopg+psycopg://", "postgresql+psycopg://")
 
 # Настройки подключения
 if "postgresql" in DATABASE_URL:
