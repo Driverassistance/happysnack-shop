@@ -51,7 +51,7 @@ async def main():
     
     Base.metadata.create_all(bind=engine)
     logger.info("✅ Database tables ready")
-except Exception as e:
+    except Exception as e:
     logger.error(f"❌ Database init failed: {e}")
     raise
 
