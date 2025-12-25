@@ -1389,6 +1389,7 @@ def create_app():
     app.router.add_post('/api/client/feedback', submit_feedback)
     app.router.add_get('/api/client/surveys/current', get_current_survey)
     app.router.add_post('/api/client/surveys/submit', submit_survey)
+    app.router.add_post('/api/orders/create', create_order_from_webapp)
     
     # Profile WebApp
     app.router.add_get('/profile/', serve_profile_webapp)
