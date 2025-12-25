@@ -40,18 +40,18 @@ async def main():
     
     # Database initialization
     try:
-    from database import Base, engine
-    # ИМПОРТИРУЕМ ВСЕ МОДЕЛИ чтобы Base знал о них
-    from models.user import User, Client, SalesRepresentative
-    from models.product import Product, Category
-    from models.order import Order, OrderItem
-    from models.bonus import BonusTransaction
-    from models.ai_log import AIConversation, AIProactiveMessage
-    from models.ai_settings import AIAgentSettings
-    
-    Base.metadata.create_all(bind=engine)
+            from database import Base, engine
+            # ИМПОРТИРУЕМ ВСЕ МОДЕЛИ чтобы Base знал о них
+            from models.user import User, Client, SalesRepresentative
+            from models.product import Product, Category
+            from models.order import Order, OrderItem
+            from models.bonus import BonusTransaction
+            from models.ai_log import AIConversation, AIProactiveMessage
+            from models.ai_settings import AIAgentSettings
+            
+            Base.metadata.create_all(bind=engine)
     logger.info("✅ Database tables ready")
-    except Exception as e:
+            except Exception as e:
     logger.error(f"❌ Database init failed: {e}")
     raise
 
