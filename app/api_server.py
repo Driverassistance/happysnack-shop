@@ -1,4 +1,6 @@
 """
+import logging
+logger = logging.getLogger(__name__)
 API сервер для Telegram WebApp и Admin Dashboard
 Полная версия со всеми endpoints
 """
