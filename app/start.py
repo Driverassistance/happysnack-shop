@@ -13,13 +13,13 @@ logger = logging.getLogger(__name__)
 async def run_bot():
     """Запуск Telegram бота"""
     logger.info("🤖 Starting Telegram Bot...")
-    from app.bot import main as bot_main
+    from bot import main as bot_main
     await bot_main()
 
 async def run_api():
     """Запуск API сервера"""
     logger.info("🌐 Starting API Server...")
-    from app.api_server import create_app
+    from api_server import create_app
     
     app = create_app()
     port = int(os.getenv('PORT', 8080))
