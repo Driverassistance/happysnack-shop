@@ -13,7 +13,6 @@ from datetime import datetime, timedelta
 
 from models.user import User, Client, SalesRepresentative
 from models.product import Product, Category
-from models.user import CustomPrice
 from models.order import Order, OrderItem
 import logging
 logger = logging.getLogger(__name__)
@@ -1226,14 +1225,6 @@ async def create_order_from_webapp(request):
         items_data = []
         
         for product_id, quantity in cart.items():
-            product = db.query(Product).filter(Product.id == int(product_id)).first()
-            if not product or not product.is_active:
-                continue
-            
-            # Получаем цену для клиента
-            price = product.price
-            custom_price = db.query(CustomPrice).filter(
-                CustomPrice.client_id == client.id,
                 CustomPrice.product_id == product.id
             ).first()
             
