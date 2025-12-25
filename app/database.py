@@ -14,7 +14,10 @@ DATABASE_URL = os.getenv(
 
 # Render.com даёт postgres://, но SQLAlchemy нужен postgresql://
 if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
+elif DATABASE_URL.startswith("postgresql://"):
+    # Явно указываем драйвер psycopg (версия 3)
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
 
 # Настройки подключения
 if "postgresql" in DATABASE_URL:
