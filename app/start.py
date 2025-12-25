@@ -46,6 +46,7 @@ async def main():
         from models.bonus import BonusTransaction
         from models.ai_log import AIConversation, AIProactiveMessage
         from models.ai_settings import AIAgentSettings
+        from models.analytics import AnalyticsEvent, ClientMetrics
         
         Base.metadata.create_all(bind=engine)
         logger.info("✅ Database tables ready")
