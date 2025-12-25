@@ -1199,33 +1199,22 @@ async def create_order_from_webapp(request):
         cart = data.get('cart', {})
         
         db = SessionLocal()
-        
         user = db.query(User).filter(User.telegram_id == user_id).first()
         if not user or not user.client:
             db.close()
             return web.json_response({'error': 'Client not found'}, status=404)
         
         client = user.client
-        
-        # Считаем сумму
         total = 0
         items = []
+        
         for product_id, qty in cart.items():
             product = db.query(Product).filter(Product.id == int(product_id)).first()
             if product:
                 total += product.price * qty
-                items.append(OrderItem(
-                    product_id=product.id,
-                    quantity=qty,
-                    price=product.price
-                ))
+                items.append(OrderItem(product_id=product.id, quantity=qty, price=product.price))
         
-        # Создаём заказ
-        order = Order(
-            client_id=client.id,
-            total_amount=total,
-            status='pending'
-        )
+        order = Order(client_id=client.id, total_amount=total, status='pending')
         db.add(order)
         db.flush()
         
@@ -1234,16 +1223,10 @@ async def create_order_from_webapp(request):
             db.add(item)
         
         db.commit()
+        db.close()
         
-        return web.json_response({
-            'success': True,
-            'order_id': order.id,
-            'total': total,
-            'bonus_earned': 0
-        })
-        
+        return web.json_response({'success': True, 'order_id': order.id, 'total': total, 'bonus_earned': 0})
     except Exception as e:
-        print(f"Order error: {e}")
         return web.json_response({'error': str(e)}, status=500)
     # WebApp routes
     app.router.add_get('/api/catalog', get_catalog)
