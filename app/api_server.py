@@ -11,7 +11,10 @@ from datetime import datetime, timedelta
 
 from models.user import User, Client, SalesRepresentative
 from models.product import Product, Category
+from models.user import CustomPrice
 from models.order import Order, OrderItem
+import logging
+logger = logging.getLogger(__name__)
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 if DATABASE_URL and DATABASE_URL.startswith('postgresql://'):
