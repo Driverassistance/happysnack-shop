@@ -37,7 +37,7 @@ async def main():
     """Запуск бота и API одновременно"""
     logger.info("🚀 Starting HappySnack unified service...")
     
-    # Database initialization
+    # Database initialization - импортируем ВСЕ модели
     try:
         from database import Base, engine
         from models.user import User, Client, SalesRepresentative
@@ -47,6 +47,7 @@ async def main():
         from models.ai_log import AIConversation, AIProactiveMessage
         from models.ai_settings import AIAgentSettings
         from models.analytics import AnalyticsEvent, ClientMetrics
+        from models.settings import SystemSettings
         
         Base.metadata.create_all(bind=engine)
         logger.info("✅ Database tables ready")
