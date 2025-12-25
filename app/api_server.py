@@ -1202,52 +1202,6 @@ async def create_order_from_webapp(request):
         user = db.query(User).filter(User.telegram_id == user_id).first()
         if not user or not user.client:
             db.close()
-            return web.json_response({'error': 'Client not found'}, status=404)
-        
-        client = user.client
-        total = 0
-        items = []
-        
-        for product_id, qty in cart.items():
-            product = db.query(Product).filter(Product.id == int(product_id)).first()
-            if product:
-                total += product.price * qty
-                items.append(OrderItem(product_id=product.id, quantity=qty, price=product.price))
-        
-        import random
-order_number = f"ORD-{random.randint(10000, 99999)}"
-order = Order(
-    order_number=order_number,
-    client_id=client.id,
-    total=total,
-    final_total=total,
-    status='new'
-)
-        db.add(order)
-        db.flush()
-        
-        for item in items:
-            item.order_id = order.id
-            db.add(item)
-        
-        db.commit()
-        db.close()
-        
-        return web.json_response({'success': True, 'order_id': order.id, 'total': total, 'bonus_earned': 0})
-    except Exception as e:
-        return web.json_response({'error': str(e)}, status=500)
-    # WebApp routes
-    app.router.add_get('/api/catalog', get_catalog)
-    
-    # Admin - Товары
-    app.router.add_get('/api/admin/products', get_products)
-    app.router.add_get('/api/admin/products/{id}', get_product)
-    app.router.add_post('/api/admin/products', create_product)
-    app.router.add_put('/api/admin/products/{id}', update_product)
-    app.router.add_delete('/api/admin/products/{id}', delete_product)
-    app.router.add_post('/api/admin/products/{id}/photo', upload_product_photo)
-    
-    # Admin - Категории
     app.router.add_get('/api/admin/categories', get_categories)
     app.router.add_post('/api/admin/categories', create_category)
     app.router.add_put('/api/admin/categories/{id}', update_category)
@@ -1335,3 +1289,30 @@ if __name__ == '__main__':
     app = create_app()
     port = int(os.getenv('PORT', 8080))
     web.run_app(app, host='0.0.0.0', port=port)
+        import random
+        order_number = f"ORD-{random.randint(10000, 99999)}"
+        order = Order(
+            order_number=order_number,
+            client_id=client.id,
+            total=total,
+            final_total=total,
+            status='new'
+        )
+        db.add(order)
+        db.flush()
+
+        for item in items:
+            item.order_id = order.id
+            db.add(item)
+
+        db.commit()
+        db.close()
+        return web.json_response({'success': True, 'order_id': order.id, 'total': total, 'bonus_earned': 0})
+    except Exception as e:
+        if 'db' in locals(): db.close()
+        return web.json_response({'error': str(e)}, status=500)
+
+# Роуты (убедись, что они идут после функций)
+def setup_routes(app):
+    app.router.add_get('/api/catalog', get_catalog)
+    app.router.add_get('/api/admin/products', get_products)
