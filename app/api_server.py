@@ -1214,7 +1214,15 @@ async def create_order_from_webapp(request):
                 total += product.price * qty
                 items.append(OrderItem(product_id=product.id, quantity=qty, price=product.price))
         
-        order = Order(client_id=client.id, total_amount=total, status='pending')
+        import random
+order_number = f"ORD-{random.randint(10000, 99999)}"
+order = Order(
+    order_number=order_number,
+    client_id=client.id,
+    total=total,
+    final_total=total,
+    status='new'
+)
         db.add(order)
         db.flush()
         
