@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#FF6B35">
+    <title>HappySnack - Каталог</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background: var(--tg-theme-bg-color, #ffffff); color: var(--tg-theme-text-color, #000000); padding-bottom: 80px; }
+        .header { background: linear-gradient(135deg, #FF6B35 0%, #FF8C61 100%); padding: 20px; color: white; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .search-box { background: white; border-radius: 12px; padding: 12px; display: flex; align-items: center; margin-top: 10px; }
+        .search-box input { border: none; outline: none; flex: 1; font-size: 16px; color: #333; }
+        .categories { display: flex; overflow-x: auto; padding: 15px; gap: 10px; }
+        .category-chip { background: #f5f5f5; border-radius: 20px; padding: 10px 20px; white-space: nowrap; cursor: pointer; }
+        .category-chip.active { background: #FF6B35; color: white; }
+        .products { padding: 15px; }
+        .product-card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; gap: 15px; align-items: center; }
+        .product-image { width: 80px; height: 80px; border-radius: 8px; object-fit: cover; background: #f5f5f5; }
+        .product-info { flex: 1; }
+        .product-name { font-size: 16px; font-weight: 600; }
+        .product-price { font-size: 18px; font-weight: bold; color: #FF6B35; }
+        .cart-button { position: fixed; bottom: 20px; left: 20px; right: 20px; background: linear-gradient(135deg, #FF6B35 0%, #FF8C61 100%); color: white; border: none; border-radius: 12px; padding: 18px; font-size: 18px; font-weight: bold; cursor: pointer; display: flex; justify-content: space-between; z-index: 1000; }
+        .cart-button:disabled { background: #ccc; }
+        #loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #FF6B35; display: flex; justify-content: center; align-items: center; z-index: 10000; color: white; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div id="loader">🍿 Загружаем каталог...</div>
+    <div class="header">
+        <h1>🍿 HappySnack</h1>
+        <div class="search-box"><span>🔍</span><input type="text" id="searchInput" placeholder="Поиск товаров..."></div>
+    </div>
+    <div class="categories" id="categories"></div>
+    <div class="products" id="products"></div>
+    <button class="cart-button" id="cartButton" disabled>
+        <span id="cartInfo">Корзина пуста</span>
+        <span id="cartTotal">0₸</span>
+    </button>
+
+    <script>
+        const API_BASE = '/api';
+        let tg = window.Telegram?.WebApp;
+        let products = [];
+        let cart = {};
+
+        function updateCartDisplay() {
+            const itemCount = Object.values(cart).reduce((a, b) => a + b, 0);
+            const total = Object.entries(cart).reduce((sum, [id, qty]) => {
+                const p = products.find(x => x.id == id);
+                return sum + (p ? p.price * qty : 0);
+            }, 0);
+
+            const btn = document.getElementById("cartButton");
+            btn.disabled = itemCount === 0;
+            document.getElementById("cartInfo").textContent = itemCount > 0 ? `${itemCount} тов.` : "Корзина пуста";
+            document.getElementById("cartTotal").textContent = `${total.toLocaleString()}₸`;
+
+            if (tg) {
+                if (itemCount > 0) {
+                    tg.MainButton.setText(`Оформить заказ: ${total.toLocaleString()}₸`);
+                    tg.MainButton.show();
+                } else {
+                    tg.MainButton.hide();
+                }
+            }
+        }
+
+        async function sendOrder() {
+            if (Object.keys(cart).length === 0) return;
+            if (tg) tg.MainButton.showProgress();
+            try {
+                const response = await fetch(`${API_BASE}/orders/create`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        user_id: tg?.initDataUnsafe?.user?.id || "web_user",
+                        cart: cart
+                    })
+                });
+                const res = await response.json();
+                if (res.success) {
+                    if (tg) tg.showAlert("Заказ принят!");
+                    else alert("Заказ принят!");
+                    cart = {};
+                    updateCartDisplay();
+                }
+            } catch (e) {
+                alert("Ошибка: " + e.message);
+            } finally {
+                if (tg) tg.MainButton.hideProgress();
+            }
+        }
+
+        window.changeQty = (id, delta) => {
+            const p = products.find(x => x.id == id);
+            const cur = cart[id] || 0;
+            const next = Math.max(0, cur + delta);
+            if (next === 0) delete cart[id]; else cart[id] = next;
+            renderProducts();
+            updateCartDisplay();
+        };
+
+        function renderProducts() {
+            const container = document.getElementById("products");
+            container.innerHTML = products.map(p => `
+                <div class="product-card">
+                    <div class="product-info">
+                        <div class="product-name">${p.name}</div>
+                        <div class="product-price">${p.price.toLocaleString()} ₸</div>
+                    </div>
+                    <div>
+                        ${cart[p.id] 
+                            ? `<button onclick="changeQty(${p.id}, -1)">-</button> ${cart[p.id]} <button onclick="changeQty(${p.id}, 1)">+</button>`
+                            : `<button onclick="changeQty(${p.id}, 1)">Добавить</button>`}
+                    </div>
+                </div>`).join('');
+        }
+
+        async function init() {
+            if (tg) { tg.ready(); tg.expand(); tg.MainButton.onClick(sendOrder); }
+            document.getElementById("cartButton").onclick = sendOrder;
+            try {
+                const res = await fetch(`${API_BASE}/catalog`);
+                const data = await res.json();
+                products = data.products;
+                renderProducts();
+            } finally {
+                document.getElementById("loader").classList.add("hidden");
+            }
+        }
+        init();
+    </script>
+</body>
+</html>
