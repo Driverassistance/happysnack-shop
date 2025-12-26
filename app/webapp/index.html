@@ -597,69 +597,69 @@
 
   function startApp() {
     tg = getTg();
-    if (tg) {
-      tg.ready();
-      tg.expand();
-      
-      tg.MainButton.onClick(async () => {
-        const itemCount = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
-        
-        if (itemCount === 0) {
-          tg.showAlert("Корзина пуста!");
-          return;
-        }
-        
-        tg.MainButton.showProgress();
-        
-        try {
-          const orderData = {
-            user_id: tg.initDataUnsafe.user?.id,
-            cart: cart,
-            payment_method: 'cash',
-            notes: ''
-          };
-          
-          console.log('Отправляем заказ:', orderData);
-          
-          const response = await fetch(`${API_BASE}/orders/create`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(orderData)
-          });
-          
-          console.log('Ответ сервера:', response.status);
-          const result = await response.json();
-          console.log('Данные:', result);
-          
-          if (response.ok && result.success) {
-            tg.showAlert(
-              `✅ Заказ #${result.order_id} принят!\n\n` +
-              `💰 Сумма: ${result.total.toLocaleString()}₸\n` +
-              `🎁 Бонусов: +${result.bonus_earned.toLocaleString()}₸`
-            );
-            
+
+    // Единая функция для обработки заказа
+    const handleOrder = async () => {
+      const itemCount = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
+      if (itemCount === 0) {
+        if (tg) tg.showAlert("Корзина пуста!");
+        return;
+      }
+
+      if (tg) tg.MainButton.showProgress();
+
+      try {
+        const orderData = {
+          user_id: tg?.initDataUnsafe?.user?.id || "test_user",
+          cart: cart,
+          payment_method: 'cash',
+          notes: 'Заказ через WebApp'
+        };
+
+        const response = await fetch(`${API_BASE}/orders/create`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(orderData)
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          const msg = `✅ Заказ #${result.order_id} принят!\n💰 Сумма: ${result.total.toLocaleString()}₸`;
+          if (tg) {
+            tg.showAlert(msg);
             cart = {};
             updateCartDisplay();
             renderProducts();
-            
             setTimeout(() => tg.close(), 2000);
           } else {
-            throw new Error(result.error || 'Ошибка создания заказа');
+            alert(msg);
           }
-          
-        } catch (error) {
-          console.error('Ошибка заказа:', error);
-          tg.showAlert('❌ Ошибка: ' + error.message);
-        } finally {
-          tg.MainButton.hideProgress();
+        } else {
+          throw new Error(result.error || 'Ошибка сервера');
         }
-      });
-      
-    } else {
-      console.warn("Telegram WebApp not detected yet (ok for browser test).");
+      } catch (error) {
+        console.error('Ошибка заказа:', error);
+        if (tg) tg.showAlert('❌ Ошибка: ' + error.message);
+        else alert('Ошибка: ' + error.message);
+      } finally {
+        if (tg) tg.MainButton.hideProgress();
+      }
+    };
+
+    // Привязываем функцию к кнопке в HTML
+    const htmlCartBtn = document.getElementById("cartButton");
+    if (htmlCartBtn) {
+      htmlCartBtn.onclick = handleOrder;
     }
 
-    setTimeout(() => hideLoader(), 8000);
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      tg.MainButton.onClick(handleOrder);
+    }
+
+    setTimeout(() => hideLoader(), 500); // Ускорил лоадер, 8 сек — это долго
     loadData();
   }
 
