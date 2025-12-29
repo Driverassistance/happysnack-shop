@@ -454,6 +454,7 @@
 
   function renderProducts() {
     const productsContainer = document.getElementById('products');
+    if (!productsContainer) return;
 
     if (!products || !products.length) {
         productsContainer.innerHTML = `
@@ -464,10 +465,8 @@
         return;
     }
 
-    const activeCategory = currentCategory;
-
     productsContainer.innerHTML = products.map(product => {
-        if (activeCategory !== 'all' && product.category_id != activeCategory) {
+        if (currentCategory !== 'all' && product.category_id != currentCategory) {
             return '';
         }
 
@@ -475,30 +474,30 @@
 
         return `
       <div class="product-card">
-        <div class="product-image-container">
-          ${product.photo_url 
-            ? '<img src="' + product.photo_url + '" alt="' + product.name + '" class="product-image" loading="lazy">'
-            : '<div class="no-image">📷</div>'
-          }
-          ${count > 0 ? '<div class="product-badge">' + count + '</div>' : ''}
-        </div>
+        ${product.photo_url 
+          ? `<img src="${product.photo_url}" alt="${product.name}" class="product-image" loading="lazy">`
+          : '<div class="product-image placeholder">📷</div>'
+        }
         <div class="product-info">
-          <div class="product-header">
-            <h3 class="product-title">${product.name}</h3>
-            <span class="product-price">${parseInt(product.price).toLocaleString()} ₸</span>
-          </div>
+          <div class="product-name">${product.name}</div>
+          <div class="product-price">${parseInt(product.price).toLocaleString()} ₸</div>
           
-          ${count === 0 
-            ? '<button class="add-btn" onclick="changeQty(' + product.id + ', 1)">Добавить</button>'
-            : '<div class="counter-controls"><button class="counter-btn" onclick="changeQty(' + product.id + ', -1)">−</button><span class="counter-value">' + count + '</span><button class="counter-btn" onclick="changeQty(' + product.id + ', 1)">+</button></div>'
-          }
+          <div class="product-actions">
+            ${count === 0 
+              ? `<button class="qty-btn" style="width: 100%;" onclick="changeQty(${product.id}, 1)">Добавить</button>`
+              : `<div class="qty-control">
+                   <button class="qty-btn" onclick="changeQty(${product.id}, -1)">−</button>
+                   <span class="qty-display">${count}</span>
+                   <button class="qty-btn" onclick="changeQty(${product.id}, 1)">+</button>
+                 </div>`
+            }
+          </div>
         </div>
       </div>`;
     }).join('');
 
     updateCartDisplay();
 }
-
   function filterByCategory(categoryId) {
     currentCategory = categoryId;
     document.querySelectorAll(".category-chip").forEach((chip) => {
@@ -512,14 +511,15 @@
     if (!product) return;
 
     const current = cart[productId] || 0;
-    const newQty = Math.max(0, Math.min(product.stock, current + delta));
+    const newQty = Math.max(0, current + delta);
 
-    if (newQty === 0) delete cart[productId];
-    else cart[productId] = newQty;
+    if (newQty === 0) {
+        delete cart[productId];
+    } else {
+        cart[productId] = newQty;
+    }
 
-    const qtyDisplay = document.getElementById(`qty-${productId}`);
-    if (qtyDisplay) qtyDisplay.textContent = String(newQty);
-
+    renderProducts(); // Перерисовываем, чтобы кнопки поменялись на - 1 +
     updateCartDisplay();
   };
 
