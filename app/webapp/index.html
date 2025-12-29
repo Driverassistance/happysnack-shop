@@ -452,52 +452,41 @@
     });
   }
 
-  function renderProducts() {
-    const productsContainer = document.getElementById('products');
-
-    if (!products || !products.length) {
-        productsContainer.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon">🔍</div>
-          <p>Товары не найдены</p>
-        </div>`;
-        return;
-    }
-
-    const activeCategory = currentCategory;
-
-    productsContainer.innerHTML = products.map(product => {
-        if (activeCategory !== 'all' && product.category_id != activeCategory) {
-            return '';
-        }
-
+function renderProducts() {
+    const container = document.getElementById('productsContainer');
+    container.innerHTML = products.map(product => {
         const count = cart[product.id] || 0;
-
         return `
-      <div class="product-card">
-        <div class="product-image-container">
-          ${product.photo_url 
-            ? '<img src="' + product.photo_url + '" alt="' + product.name + '" class="product-image" loading="lazy">'
-            : '<div class="no-image">📷</div>'
-          }
-          ${count > 0 ? '<div class="product-badge">' + count + '</div>' : ''}
-        </div>
-        <div class="product-info">
-          <div class="product-header">
-            <h3 class="product-title">${product.name}</h3>
-            <span class="product-price">${parseInt(product.price).toLocaleString()} ₸</span>
-          </div>
-          
-          ${count === 0 
-            ? '<button class="add-btn" onclick="changeQty(' + product.id + ', 1)">Добавить</button>'
-            : '<div class="counter-controls"><button class="counter-btn" onclick="changeQty(' + product.id + ', -1)">−</button><span class="counter-value">' + count + '</span><button class="counter-btn" onclick="changeQty(' + product.id + ', 1)">+</button></div>'
-          }
-        </div>
-      </div>`;
+            <div class="product-card">
+                <img src="${product.image_url || 'https://via.placeholder.com/150'}" alt="${product.name}">
+                <h3>${product.name}</h3>
+                <p class="price">${product.price.toLocaleString()} ₸</p>
+                <div class="cart-controls">
+                    ${count > 0 ? `
+                        <button onclick="updateCount(${product.id}, -1)" class="btn-minus">-</button>
+                        <span class="item-count">${count}</span>
+                        <button onclick="updateCount(${product.id}, 1)" class="btn-plus">+</button>
+                    ` : `
+                        <button onclick="updateCount(${product.id}, 1)" class="btn-add">Добавить</button>
+                    `}
+                </div>
+            </div>
+        `;
     }).join('');
-
-    updateCartDisplay();
 }
+
+// Добавь эту функцию, если её нет
+window.updateCount = function(id, delta) {
+    const current = cart[id] || 0;
+    const next = current + delta;
+    if (next <= 0) {
+        delete cart[id];
+    } else {
+        cart[id] = next;
+    }
+    renderProducts();
+    updateCartDisplay();
+};
 
   function filterByCategory(categoryId) {
     currentCategory = categoryId;
