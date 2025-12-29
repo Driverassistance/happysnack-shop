@@ -1285,6 +1285,12 @@ def create_app():
 
 if __name__ == '__main__':
     import os
+    import logging
+    
+    # Отключаем логи доступа aiohttp (про браузеры и телефоны)
+    logging.getLogger('aiohttp.access').setLevel(logging.WARNING)
+    
     app = create_app()
     port = int(os.getenv('PORT', 8080))
-    web.run_app(app, host='0.0.0.0', port=port)
+    # access_log=None полностью убирает уведомления о входах
+    web.run_app(app, host='0.0.0.0', port=port, access_log=None)
