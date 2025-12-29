@@ -1271,61 +1271,61 @@ if __name__ == '__main__':
     web.run_app(app, host='0.0.0.0', port=port)
 
 def create_app():
-    """Создаём приложение"""
-    app = web.Application()
-    
-    # WEBAPP ENDPOINTS
-    app.router.add_get('/api/catalog', get_catalog)
-    app.router.add_post('/api/orders/create', create_order_from_webapp)
-    
-    # ADMIN ENDPOINTS
-    app.router.add_get('/api/admin/products', get_products)
-    app.router.add_post('/api/admin/products', create_product)
-    app.router.add_get('/api/admin/categories', get_categories)
-    app.router.add_post('/api/admin/categories', create_category)
-    app.router.add_get('/api/admin/clients', get_clients)
-    app.router.add_get('/api/admin/orders', get_orders)
-    app.router.add_get('/api/admin/stats/dashboard', get_dashboard_stats)
-    
-    # CLIENT ENDPOINTS
-    app.router.add_get('/api/client/profile', get_client_profile)
-    app.router.add_get('/api/client/orders', get_client_orders)
-    
-    # STATIC FILES
-    app.router.add_static('/admin', 'static/admin', name='admin')
-    app.router.add_get('/', serve_webapp)
-    app.router.add_get('/{path:.*}', serve_webapp)
-    
-    return app
+"""Создаём приложение"""
+app = web.Application()
+
+# WEBAPP ENDPOINTS
+app.router.add_get('/api/catalog', get_catalog)
+app.router.add_post('/api/orders/create', create_order_from_webapp)
+
+# ADMIN ENDPOINTS
+app.router.add_get('/api/admin/products', get_products)
+app.router.add_post('/api/admin/products', create_product)
+app.router.add_get('/api/admin/categories', get_categories)
+app.router.add_post('/api/admin/categories', create_category)
+app.router.add_get('/api/admin/clients', get_clients)
+app.router.add_get('/api/admin/orders', get_orders)
+app.router.add_get('/api/admin/stats/dashboard', get_dashboard_stats)
+
+# CLIENT ENDPOINTS
+app.router.add_get('/api/client/profile', get_client_profile)
+app.router.add_get('/api/client/orders', get_client_orders)
+
+# STATIC FILES
+app.router.add_static('/admin', 'static/admin', name='admin')
+app.router.add_get('/', serve_webapp)
+app.router.add_get('/{path:.*}', serve_webapp)
+
+return app
 
 if __name__ == '__main__':
-    app = create_app()
-    port = int(os.getenv('PORT', 8080))
-    web.run_app(app, host='0.0.0.0', port=port)
-        import random
-        order_number = f"ORD-{random.randint(10000, 99999)}"
-        order = Order(
-            order_number=order_number,
-            client_id=client.id,
-            total=total,
-            final_total=total,
-            status='new'
-        )
-        db.add(order)
-        db.flush()
+app = create_app()
+port = int(os.getenv('PORT', 8080))
+web.run_app(app, host='0.0.0.0', port=port)
+    import random
+    order_number = f"ORD-{random.randint(10000, 99999)}"
+    order = Order(
+        order_number=order_number,
+        client_id=client.id,
+        total=total,
+        final_total=total,
+        status='new'
+    )
+    db.add(order)
+    db.flush()
 
-        for item in items:
-            item.order_id = order.id
-            db.add(item)
+    for item in items:
+        item.order_id = order.id
+        db.add(item)
 
-        db.commit()
-        db.close()
-        return web.json_response({'success': True, 'order_id': order.id, 'total': total, 'bonus_earned': 0})
-    except Exception as e:
-        if 'db' in locals(): db.close()
-        return web.json_response({'error': str(e)}, status=500)
+    db.commit()
+    db.close()
+    return web.json_response({'success': True, 'order_id': order.id, 'total': total, 'bonus_earned': 0})
+except Exception as e:
+    if 'db' in locals(): db.close()
+    return web.json_response({'error': str(e)}, status=500)
 
 # Роуты (убедись, что они идут после функций)
 def setup_routes(app):
-    app.router.add_get('/api/catalog', get_catalog)
-    app.router.add_get('/api/admin/products', get_products)
+app.router.add_get('/api/catalog', get_catalog)
+app.router.add_get('/api/admin/products', get_products)
