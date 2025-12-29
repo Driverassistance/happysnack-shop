@@ -1193,105 +1193,90 @@ async def serve_profile_webapp(request):
 
 async def create_order_from_webapp(request):
     """Создать заказ из WebApp"""
+    db = SessionLocal()
     try:
         data = await request.json()
         user_id = int(data.get('user_id'))
         cart = data.get('cart', {})
         
-        db = SessionLocal()
         user = db.query(User).filter(User.telegram_id == user_id).first()
         if not user or not user.client:
-            db.close()
             return web.json_response({'success': False, 'error': 'Пользователь не найден'}, status=404)
         
-        # Здесь должна быть твоя логика сохранения заказа в БД
-        # ... (если она есть, вставь сюда)
+        client = user.client
+        # Здесь должна быть логика расчета total на основе cart
+        total = 0 
         
-        db.close()
-        return web.json_response({'success': True, 'order_id': 123}) # Тестовый ответ
-        
+        import random
+        order_number = f"ORD-{random.randint(10000, 99999)}"
+        order = Order(
+            order_number=order_number,
+            client_id=client.id,
+            total=total,
+            final_total=total,
+            status='new'
+        )
+        db.add(order)
+        db.flush()
+
+        # Логика для позиций заказа (items), если они переданы
+        # for item_data in cart.values():
+        #     ... (твой код обработки items)
+
+        db.commit()
+        return web.json_response({'success': True, 'order_id': order.id, 'total': total, 'bonus_earned': 0})
     except Exception as e:
-        return web.json_response({'success': False, 'error': str(e)}, status=500)
-
-# --- РЕГИСТРАЦИЯ РОУТОВ (ВНЕ ФУНКЦИИ) ---
-
-app.router.add_get('/api/admin/categories', get_categories)
-app.router.add_post('/api/admin/categories', create_category)
-app.router.add_put('/api/admin/categories/{id}', update_category)
-
-# Admin - Клиенты
-app.router.add_get('/api/admin/clients', get_clients)
-app.router.add_get('/api/admin/clients/{id}', get_client)
-app.router.add_put('/api/admin/clients/{id}', update_client)
-
-# Admin - Заказы
-app.router.add_get('/api/admin/orders', get_orders)
-app.router.add_get('/api/admin/orders/{id}', get_order)
-app.router.add_put('/api/admin/orders/{id}/status', update_order_status)
-
-# Admin - Статистика
-app.router.add_get('/api/admin/stats/dashboard', get_dashboard_stats)
-
-# Admin - Настройки
-app.router.add_get('/api/admin/settings', get_settings)
-app.router.add_put('/api/admin/settings', update_settings)
-
-# Admin - Торговые представители
-app.router.add_get('/api/admin/sales_reps', get_sales_reps)
-app.router.add_post('/api/admin/sales_reps', add_sales_rep)
-app.router.add_put('/api/admin/sales_reps/{id}', update_sales_rep)
-
-# Client Profile API
-app.router.add_get('/api/client/profile', get_client_profile)
-app.router.add_get('/api/client/orders', get_client_orders)
-app.router.add_post('/api/client/orders/{id}/repeat', repeat_order)
-app.router.add_get('/api/client/favorites', get_client_favorites)
-app.router.add_get('/api/client/stats', get_client_stats)
-app.router.add_post('/api/client/feedback', submit_feedback)
-app.router.add_get('/api/client/surveys/current', get_current_survey)
-app.router.add_post('/api/client/surveys/submit', submit_survey)
-app.router.add_post('/api/orders/create', create_order_from_webapp)
-
-# Profile WebApp
-app.router.add_get('/profile/', serve_profile_webapp)
-app.router.add_get('/profile/{path:.*}', serve_profile_webapp)
-
-# Dashboard static files
-app.router.add_static('/admin', 'static/admin', name='admin')
-
-# WebApp routes (должны быть в конце)
-app.router.add_get('/', serve_webapp)
-app.router.add_get('/{path:.*}', serve_webapp)
-
-return app
-
-if __name__ == '__main__':
-    app = create_app()
-    port = int(os.getenv('PORT', 8080))
-    web.run_app(app, host='0.0.0.0', port=port)
+        if db: db.rollback()
+        return web.json_response({'error': str(e)}, status=500)
+    finally:
+        db.close()
 
 def create_app():
-    """Создаём приложение"""
+    """Создаём приложение и регистрируем ВСЕ роуты"""
     app = web.Application()
 
     # WEBAPP ENDPOINTS
     app.router.add_get('/api/catalog', get_catalog)
     app.router.add_post('/api/orders/create', create_order_from_webapp)
 
-    # ADMIN ENDPOINTS
+    # ADMIN - Категории и Продукты
     app.router.add_get('/api/admin/products', get_products)
     app.router.add_post('/api/admin/products', create_product)
     app.router.add_get('/api/admin/categories', get_categories)
     app.router.add_post('/api/admin/categories', create_category)
-    app.router.add_get('/api/admin/clients', get_clients)
-    app.router.add_get('/api/admin/orders', get_orders)
-    app.router.add_get('/api/admin/stats/dashboard', get_dashboard_stats)
+    app.router.add_put('/api/admin/categories/{id}', update_category)
 
-    # CLIENT ENDPOINTS
+    # ADMIN - Клиенты
+    app.router.add_get('/api/admin/clients', get_clients)
+    app.router.add_get('/api/admin/clients/{id}', get_client)
+    app.router.add_put('/api/admin/clients/{id}', update_client)
+
+    # ADMIN - Заказы
+    app.router.add_get('/api/admin/orders', get_orders)
+    app.router.add_get('/api/admin/orders/{id}', get_order)
+    app.router.add_put('/api/admin/orders/{id}/status', update_order_status)
+
+    # ADMIN - Остальное
+    app.router.add_get('/api/admin/stats/dashboard', get_dashboard_stats)
+    app.router.add_get('/api/admin/settings', get_settings)
+    app.router.add_put('/api/admin/settings', update_settings)
+    app.router.add_get('/api/admin/sales_reps', get_sales_reps)
+    app.router.add_post('/api/admin/sales_reps', add_sales_rep)
+    app.router.add_put('/api/admin/sales_reps/{id}', update_sales_rep)
+
+    # CLIENT API
     app.router.add_get('/api/client/profile', get_client_profile)
     app.router.add_get('/api/client/orders', get_client_orders)
+    app.router.add_post('/api/client/orders/{id}/repeat', repeat_order)
+    app.router.add_get('/api/client/favorites', get_client_favorites)
+    app.router.add_get('/api/client/stats', get_client_stats)
+    app.router.add_post('/api/client/feedback', submit_feedback)
+    app.router.add_get('/api/client/surveys/current', get_current_survey)
+    app.router.add_post('/api/client/surveys/submit', submit_survey)
 
-    # STATIC FILES
+    # STATIC & WEBAPP
+    app.router.add_get('/profile/', serve_profile_webapp)
+    app.router.add_get('/profile/{path:.*}', serve_profile_webapp)
     app.router.add_static('/admin', 'static/admin', name='admin')
     app.router.add_get('/', serve_webapp)
     app.router.add_get('/{path:.*}', serve_webapp)
@@ -1299,33 +1284,7 @@ def create_app():
     return app
 
 if __name__ == '__main__':
-app = create_app()
-port = int(os.getenv('PORT', 8080))
-web.run_app(app, host='0.0.0.0', port=port)
-    import random
-    order_number = f"ORD-{random.randint(10000, 99999)}"
-    order = Order(
-        order_number=order_number,
-        client_id=client.id,
-        total=total,
-        final_total=total,
-        status='new'
-    )
-    db.add(order)
-    db.flush()
-
-    for item in items:
-        item.order_id = order.id
-        db.add(item)
-
-    db.commit()
-    db.close()
-    return web.json_response({'success': True, 'order_id': order.id, 'total': total, 'bonus_earned': 0})
-except Exception as e:
-    if 'db' in locals(): db.close()
-    return web.json_response({'error': str(e)}, status=500)
-
-# Роуты (убедись, что они идут после функций)
-def setup_routes(app):
-app.router.add_get('/api/catalog', get_catalog)
-app.router.add_get('/api/admin/products', get_products)
+    import os
+    app = create_app()
+    port = int(os.getenv('PORT', 8080))
+    web.run_app(app, host='0.0.0.0', port=port)
