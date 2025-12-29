@@ -1192,7 +1192,7 @@ async def serve_profile_webapp(request):
 
 
 async def create_order_from_webapp(request):
-   """Создать заказ из WebApp"""
+    """Создать заказ из WebApp"""
     try:
         data = await request.json()
         user_id = int(data.get('user_id'))
