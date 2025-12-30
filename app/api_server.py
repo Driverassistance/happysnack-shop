@@ -1237,7 +1237,25 @@ async def create_order_from_webapp(request):
         return web.json_response({'error': str(e)}, status=500)
     finally:
         db.close()
-
+async def update_client_profile_api(request):
+    data = await request.json()
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.telegram_id == data['user_id']).first()
+        if user:
+            from models.user import Client
+            client = user.client
+            if not client:
+                client = Client(user_id=user.id)
+                db.add(client)
+            
+            client.company_name = data['company_name']
+            client.address = data['address']
+            client.contact_phone = data['contact_phone']
+            db.commit()
+            return web.json_response({'success': True})
+    finally:
+        db.close()
 def create_app():
     """Создаём приложение и регистрируем ВСЕ роуты"""
     app = web.Application()
@@ -1290,25 +1308,7 @@ def create_app():
     app.router.add_get('/{path:.*}', serve_webapp)
 
     return app
-async def update_client_profile_api(request):
-    data = await request.json()
-    db = SessionLocal()
-    try:
-        user = db.query(User).filter(User.telegram_id == data['user_id']).first()
-        if user:
-            from models.user import Client
-            client = user.client
-            if not client:
-                client = Client(user_id=user.id)
-                db.add(client)
-            
-            client.company_name = data['company_name']
-            client.address = data['address']
-            client.contact_phone = data['contact_phone']
-            db.commit()
-            return web.json_response({'success': True})
-    finally:
-        db.close()
+
 if __name__ == '__main__':
     import os
     import logging
