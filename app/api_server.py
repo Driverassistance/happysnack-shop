@@ -72,7 +72,6 @@ async def get_catalog(request):
     finally:
         db.close()
 
-
 def get_category_icon(name):
     """Получить иконку категории"""
     icons = {
