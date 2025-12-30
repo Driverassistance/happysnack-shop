@@ -306,6 +306,25 @@
         opacity: 1;
         transition: opacity 0.3s ease;
     }
+	/* Стили для формы регистрации */
+.modal {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6); display: none; justify-content: center;
+    align-items: center; z-index: 2000; padding: 20px;
+}
+.modal-content {
+    background: white; padding: 25px; border-radius: 20px; width: 100%; max-width: 400px;
+}
+.modal-content h2 { margin-bottom: 20px; color: #FF6B35; font-size: 20px; }
+.reg-input {
+    width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ddd;
+    border-radius: 10px; font-size: 16px; outline: none;
+}
+.reg-input:focus { border-color: #FF6B35; }
+.reg-btn {
+    width: 100%; background: #FF6B35; color: white; border: none;
+    padding: 15px; border-radius: 12px; font-weight: bold; font-size: 16px;
+}
 
     </style>
 </head>
@@ -346,8 +365,18 @@
         <span id="cartInfo">Корзина пуста</span>
         <span id="cartTotal">0₸</span>
     </button>
+	<div id="regModal" class="modal">
+    <div class="modal-content">
+        <h2>📝 Регистрация клиента</h2>
+        <input type="text" id="regCompanyName" class="reg-input" placeholder="Название магазина / ИП / ТОО">
+        <input type="text" id="regAddress" class="reg-input" placeholder="Точный адрес доставки">
+        <input type="tel" id="regPhone" class="reg-input" placeholder="Контактный телефон">
+        <button class="reg-btn" onclick="submitRegistration()">Сохранить и заказать</button>
+    </div>
+    </div>
 
    <script>
+   
     const API_BASE = '/api';
   
   function hideLoader() {
@@ -563,33 +592,27 @@
     });
   }
 
-  async function loadData() {
-    console.log("LOAD DATA START");
+  let needsRegistration = false; // Добавь эту переменную в начало скрипта, где все let
 
+  async function loadData() {
     try {
       let userId = "";
-      if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
+      if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
         userId = tg.initDataUnsafe.user.id;
       }
 
       const response = await fetch(`/api/catalog?user_id=${userId}`, { cache: "no-store" });
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
       const data = await response.json();
 
       products = data.products || [];
       categories = data.categories || [];
-      isFirstOrder = !!data.is_first_order;
+      is_first_order = !!data.is_first_order;
+      needsRegistration = !!data.needs_registration; // Сервер скажет, если профиля нет
 
       renderCategories();
       renderProducts();
-      updateDiscountBanner();
     } catch (error) {
       console.error("Ошибка загрузки:", error);
-      const productsEl = document.getElementById("products");
-      if (productsEl) {
-        productsEl.innerHTML = '<div class="empty-state"><div class="empty-state-icon">❌</div><p>Ошибка загрузки товаров</p></div>';
-      }
     } finally {
       hideLoader();
     }
@@ -602,12 +625,14 @@
       tg.expand();
       
       tg.MainButton.onClick(async () => {
-        const itemCount = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
-        
-        if (itemCount === 0) {
-          tg.showAlert("Корзина пуста!");
+        if (needsRegistration) {
+          document.getElementById('regModal').style.display = 'flex'; // Показываем форму
           return;
         }
+        
+        // Если регистрация не нужна, вызываем старую функцию отправки
+        processOrder(); 
+      });
         
         tg.MainButton.showProgress();
         
@@ -662,7 +687,77 @@
     setTimeout(() => hideLoader(), 8000);
     loadData();
   }
+window.submitRegistration = async function() {
+    const company = document.getElementById('regCompanyName').value;
+    const address = document.getElementById('regAddress').value;
+    const phone = document.getElementById('regPhone').value;
 
+    if (!company || !address || !phone) {
+      tg.showAlert("Пожалуйста, заполните все поля!");
+      return;
+    }
+
+    tg.MainButton.showProgress();
+
+    try {
+      // 1. Сначала регистрируем клиента
+      const regResponse = await fetch('/api/client/profile/update', { // Используем существующий путь или создадим его
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          user_id: tg.initDataUnsafe.user?.id,
+          company_name: company,
+          address: address,
+          contact_phone: phone
+        })
+      });
+
+      if (regResponse.ok) {
+        needsRegistration = false;
+        document.getElementById('regModal').style.display = 'none';
+        // 2. Сразу отправляем заказ
+        processOrder();
+      } else {
+        throw new Error("Ошибка при сохранении данных");
+      }
+    } catch (e) {
+      tg.showAlert("Ошибка: " + e.message);
+      tg.MainButton.hideProgress();
+    }
+  };
+
+  // Вынеси логику отправки заказа в отдельную функцию для удобства
+  async function processOrder() {
+    tg.MainButton.showProgress();
+    try {
+      const orderData = {
+        user_id: tg.initDataUnsafe.user?.id,
+        cart: cart,
+        payment_method: 'cash'
+      };
+      
+      const response = await fetch('/api/orders/create', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(orderData)
+      });
+      
+      const result = await response.json();
+      if (result.success) {
+        tg.showAlert(`✅ Заказ #${result.order_id} принят!`);
+        cart = {};
+        updateCartDisplay();
+        renderProducts();
+        setTimeout(() => tg.close(), 2000);
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      tg.showAlert('❌ Ошибка: ' + error.message);
+    } finally {
+      tg.MainButton.hideProgress();
+    }
+  }
   document.addEventListener("DOMContentLoaded", startApp);
 </script>
 

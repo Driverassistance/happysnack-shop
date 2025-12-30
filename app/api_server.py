@@ -28,41 +28,48 @@ SessionLocal = sessionmaker(bind=engine)
 # ============================================
 
 async def get_catalog(request):
-    """Получить каталог товаров для WebApp"""
+    """Получить каталог товаров и автоматически создать юзера, если его нет"""
+    db = SessionLocal()
     try:
         user_id = int(request.query.get('user_id')) if request.query.get('user_id') else None
-        
-        db = SessionLocal()
-        
-        user = db.query(User).filter(User.telegram_id == user_id).first()
         is_first_order = False
         
-        if user and user.client:
-            is_first_order = not user.client.first_order_discount_used
-        
+        if user_id:
+            # Ищем юзера или создаем нового (авторегистрация)
+            user = db.query(User).filter(User.telegram_id == user_id).first()
+            if not user:
+                user = User(telegram_id=user_id, username=request.query.get('username'))
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+            
+            if user.client:
+                is_first_order = not user.client.first_order_discount_used
+            else:
+                # Если юзер есть, а профиля клиента (ИП/Адрес) еще нет
+                is_first_order = True 
+
+        # Дальше стандартная загрузка каталога
         categories = db.query(Category).filter(Category.is_active == True).order_by(Category.sort_order).all()
-        categories_data = [
-            {
-                'id': cat.id,
-                'name': cat.name,
-                'icon': get_category_icon(cat.name)
-            }
-            for cat in categories
-        ]
+        categories_data = [{'id': cat.id, 'name': cat.name, 'icon': get_category_icon(cat.name)} for cat in categories]
         
         products = db.query(Product).filter(Product.is_active == True, Product.stock > 0).all()
-        products_data = [
-            {
-                'id': prod.id,
-                'name': prod.name,
-                'price': float(prod.price),
-                'stock': prod.stock,
-                'category_id': prod.category_id,
-                'photo_url': f'/api/photo/{prod.photo_file_id}' if prod.photo_file_id else None
-            }
-            for prod in products
-        ]
+        products_data = [{
+            'id': prod.id, 'name': prod.name, 'price': float(prod.price),
+            'stock': prod.stock, 'category_id': prod.category_id,
+            'photo_url': f'/api/photo/{prod.photo_file_id}' if prod.photo_file_id else None
+        } for prod in products]
         
+        return web.json_response({
+            'products': products_data,
+            'categories': categories_data,
+            'is_first_order': is_first_order,
+            'needs_registration': not (user and user.client) if user_id else False
+        })
+    except Exception as e:
+        logger.error(f"API Error: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+    finally:
         db.close()
         
         return web.json_response({
@@ -1238,6 +1245,7 @@ def create_app():
     # WEBAPP ENDPOINTS
     app.router.add_get('/api/catalog', get_catalog)
     app.router.add_post('/api/orders/create', create_order_from_webapp)
+    app.router.add_post('/api/client/profile/update', update_client_profile_api)
 
     # ADMIN - Категории и Продукты
     app.router.add_get('/api/admin/products', get_products)
@@ -1282,7 +1290,25 @@ def create_app():
     app.router.add_get('/{path:.*}', serve_webapp)
 
     return app
-
+async def update_client_profile_api(request):
+    data = await request.json()
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.telegram_id == data['user_id']).first()
+        if user:
+            from models.user import Client
+            client = user.client
+            if not client:
+                client = Client(user_id=user.id)
+                db.add(client)
+            
+            client.company_name = data['company_name']
+            client.address = data['address']
+            client.contact_phone = data['contact_phone']
+            db.commit()
+            return web.json_response({'success': True})
+    finally:
+        db.close()
 if __name__ == '__main__':
     import os
     import logging
