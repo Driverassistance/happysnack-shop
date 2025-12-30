@@ -71,16 +71,7 @@ async def get_catalog(request):
         return web.json_response({'error': str(e)}, status=500)
     finally:
         db.close()
-        
-        return web.json_response({
-            'products': products_data,
-            'categories': categories_data,
-            'is_first_order': is_first_order
-        })
-        
-    except Exception as e:
-        print(f"API Error: {e}")
-        return web.json_response({'error': str(e)}, status=500)
+
 
 def get_category_icon(name):
     """Получить иконку категории"""
