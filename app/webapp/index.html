@@ -130,11 +130,6 @@
             margin-bottom: 5px;
         }
 
-        .product-stock {
-            font-size: 13px;
-            color: #666;
-        }
-
         .product-actions {
             display: flex;
             align-items: center;
@@ -176,31 +171,6 @@
             color: #333;
         }
 
-        .cart-button {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            right: 20px;
-            background: linear-gradient(135deg, #FF6B35 0%, #FF8C61 100%);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            padding: 18px;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(255, 107, 53, 0.4);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            z-index: 1000;
-        }
-
-        .cart-button:disabled {
-            background: #ccc;
-            box-shadow: none;
-        }
-
         .discount-banner {
             background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%);
             color: white;
@@ -220,6 +190,40 @@
             opacity: 0.95;
         }
 
+        .motivation-banner {
+            background: linear-gradient(135deg, #9C27B0 0%, #BA68C8 100%);
+            color: white;
+            padding: 15px 20px;
+            margin: 15px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(156, 39, 176, 0.3);
+        }
+
+        .motivation-banner h3 {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .progress-bar {
+            background: rgba(255,255,255,0.3);
+            border-radius: 10px;
+            height: 20px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            background: white;
+            height: 100%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: #9C27B0;
+        }
+
         .loading {
             text-align: center;
             padding: 40px;
@@ -236,26 +240,6 @@
             font-size: 64px;
             margin-bottom: 20px;
             opacity: 0.3;
-        }
-
-        .install-prompt {
-            background: linear-gradient(135deg, #2196F3 0%, #42A5F5 100%);
-            color: white;
-            padding: 15px 20px;
-            margin: 15px;
-            border-radius: 12px;
-            display: none;
-        }
-
-        .install-prompt button {
-            background: white;
-            color: #2196F3;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
-            font-weight: bold;
-            margin-top: 10px;
-            cursor: pointer;
         }
 
         #loader {
@@ -298,6 +282,258 @@
             font-size: 16px;
         }
 
+        /* МОДАЛЬНОЕ ОКНО КОРЗИНЫ */
+        .cart-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 9999;
+            overflow-y: auto;
+            animation: fadeIn 0.3s;
+        }
+
+        .cart-modal.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .cart-content {
+            background: white;
+            margin: 20px;
+            border-radius: 16px;
+            padding: 20px;
+            min-height: calc(100vh - 40px);
+        }
+
+        .cart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f5f5f5;
+        }
+
+        .cart-header h2 {
+            font-size: 24px;
+            color: #333;
+        }
+
+        .close-cart {
+            font-size: 28px;
+            cursor: pointer;
+            color: #999;
+            background: none;
+            border: none;
+        }
+
+        .cart-item {
+            display: flex;
+            gap: 15px;
+            padding: 15px 0;
+            border-bottom: 1px solid #f5f5f5;
+        }
+
+        .cart-item-image {
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            background: #f5f5f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        .cart-item-info {
+            flex: 1;
+        }
+
+        .cart-item-name {
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .cart-item-price {
+            color: #FF6B35;
+            font-weight: bold;
+        }
+
+        .cart-item-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .upsell-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 12px;
+        }
+
+        .upsell-section h3 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .upsell-item {
+            display: flex;
+            gap: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .upsell-item:active {
+            transform: scale(0.98);
+        }
+
+        .upsell-item-image {
+            width: 50px;
+            height: 50px;
+            border-radius: 6px;
+            background: #f5f5f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .upsell-item-info {
+            flex: 1;
+        }
+
+        .upsell-item-name {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+
+        .upsell-item-price {
+            color: #FF6B35;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .add-upsell-btn {
+            background: #FF6B35;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 15px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .cart-summary {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 12px;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            font-size: 16px;
+        }
+
+        .summary-row.total {
+            font-size: 20px;
+            font-weight: bold;
+            color: #FF6B35;
+            padding-top: 15px;
+            border-top: 2px solid #ddd;
+            margin-top: 10px;
+        }
+
+        .payment-method {
+            margin: 20px 0;
+        }
+
+        .payment-method h3 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .payment-options {
+            display: flex;
+            gap: 10px;
+        }
+
+        .payment-option {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .payment-option.active {
+            border-color: #FF6B35;
+            background: #FFF5F2;
+            color: #FF6B35;
+            font-weight: bold;
+        }
+
+        .comment-section {
+            margin: 20px 0;
+        }
+
+        .comment-section h3 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .comment-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .confirm-order-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #FF6B35 0%, #FF8C61 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        .confirm-order-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
         #regModal {
             display: none;
             position: fixed;
@@ -306,7 +542,7 @@
             width: 100%;
             height: 100%;
             background: rgba(0,0,0,0.5);
-            z-index: 9999;
+            z-index: 10000;
             align-items: center;
             justify-content: center;
         }
@@ -365,8 +601,69 @@
         <p>При первом заказе от 10,000₸ скидка 5%</p>
     </div>
 
+    <div class="motivation-banner" id="motivationBanner" style="display: none;">
+        <h3 id="motivationText">💎 До бонуса осталось совсем чуть-чуть!</h3>
+        <div class="progress-bar">
+            <div class="progress-fill" id="motivationProgress" style="width: 0%">0%</div>
+        </div>
+        <p id="motivationSubtext">Добавьте ещё товаров и получите подарок!</p>
+    </div>
+
     <div class="categories" id="categories"></div>
     <div class="products" id="products"></div>
+
+    <!-- МОДАЛЬНОЕ ОКНО КОРЗИНЫ -->
+    <div class="cart-modal" id="cartModal">
+        <div class="cart-content">
+            <div class="cart-header">
+                <h2>🛒 Ваша корзина</h2>
+                <button class="close-cart" onclick="closeCart()">×</button>
+            </div>
+
+            <div id="cartItems"></div>
+
+            <div class="upsell-section" id="upsellSection" style="display: none;">
+                <h3>🔥 Часто берут вместе</h3>
+                <div id="upsellItems"></div>
+            </div>
+
+            <div class="cart-summary">
+                <div class="summary-row">
+                    <span>Товары:</span>
+                    <span id="cartSubtotal">0₸</span>
+                </div>
+                <div class="summary-row" id="bonusRow" style="display: none;">
+                    <span>💎 Бонусы к начислению:</span>
+                    <span id="cartBonus">0₸</span>
+                </div>
+                <div class="summary-row total">
+                    <span>Итого:</span>
+                    <span id="cartTotal">0₸</span>
+                </div>
+            </div>
+
+            <div class="payment-method">
+                <h3>Способ оплаты</h3>
+                <div class="payment-options">
+                    <div class="payment-option active" data-method="cash" onclick="selectPayment('cash')">
+                        💵 Наличные
+                    </div>
+                    <div class="payment-option" data-method="card" onclick="selectPayment('card')">
+                        💳 Безнал
+                    </div>
+                </div>
+            </div>
+
+            <div class="comment-section">
+                <h3>Комментарий к заказу</h3>
+                <textarea class="comment-input" id="orderComment" placeholder="Укажите удобное время доставки, адрес или другие пожелания..."></textarea>
+            </div>
+
+            <button class="confirm-order-btn" onclick="confirmOrder()">
+                Подтвердить заказ
+            </button>
+        </div>
+    </div>
 
     <div id="regModal">
         <div class="modal-content">
@@ -387,6 +684,14 @@
     let currentCategory = 'all';
     let is_first_order = false;
     let needsRegistration = false;
+    let selectedPaymentMethod = 'cash';
+
+    // Настройки мотивации (можно будет вынести в дашборд)
+    const MOTIVATION_TIERS = [
+        { threshold: 15000, bonus: 'Бесплатная доставка', emoji: '🚚' },
+        { threshold: 25000, bonus: 'Упаковка кваса в подарок', emoji: '🥤' },
+        { threshold: 50000, bonus: '5% скидка на заказ', emoji: '💰' }
+    ];
 
     function getTg() {
         return window.Telegram?.WebApp || null;
@@ -408,13 +713,6 @@
         if (count % 10 === 1 && count % 100 !== 11) return 'товар';
         if ([2,3,4].includes(count % 10) && ![12,13,14].includes(count % 100)) return 'товара';
         return 'товаров';
-    }
-
-    function calculateDiscount(total) {
-        if (is_first_order && total >= 10000) {
-            return Math.floor(total * 0.05);
-        }
-        return 0;
     }
 
     function renderCategories() {
@@ -508,14 +806,12 @@
 
         renderProducts();
         updateCartDisplay();
+        updateMotivation();
     };
 
     function updateCartDisplay() {
         const itemCount = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
-        const total = Object.entries(cart).reduce((sum, [id, qty]) => {
-            const product = products.find(p => String(p.id) === String(id));
-            return sum + (product ? (product.price || 0) * qty : 0);
-        }, 0);
+        const total = calculateTotal();
 
         if (!tg || !tg.MainButton) return;
 
@@ -524,15 +820,188 @@
             return;
         }
 
-        let displayTotal = total;
-        if (is_first_order) {
-            displayTotal = total - calculateDiscount(total);
-        }
-
-        tg.MainButton.setText(`Оформить заказ: ${formatPrice(displayTotal)}₸`);
+        tg.MainButton.setText(`Оформить заказ: ${formatPrice(total)}₸`);
         tg.MainButton.show();
         tg.MainButton.enable();
     }
+
+    function calculateTotal() {
+        return Object.entries(cart).reduce((sum, [id, qty]) => {
+            const product = products.find(p => String(p.id) === String(id));
+            return sum + (product ? (product.price || 0) * qty : 0);
+        }, 0);
+    }
+
+    function updateMotivation() {
+        const total = calculateTotal();
+        const banner = document.getElementById('motivationBanner');
+        
+        // Находим ближайший порог
+        const nextTier = MOTIVATION_TIERS.find(tier => total < tier.threshold);
+        
+        if (nextTier && total > 0) {
+            const remaining = nextTier.threshold - total;
+            const progress = (total / nextTier.threshold) * 100;
+            
+            banner.style.display = 'block';
+            document.getElementById('motivationText').textContent = 
+                `${nextTier.emoji} ${nextTier.bonus}`;
+            document.getElementById('motivationProgress').style.width = `${progress}%`;
+            document.getElementById('motivationProgress').textContent = `${Math.round(progress)}%`;
+            document.getElementById('motivationSubtext').textContent = 
+                `Добавьте ещё на ${formatPrice(remaining)}₸`;
+        } else {
+            banner.style.display = 'none';
+        }
+    }
+
+    function showCart() {
+        const modal = document.getElementById('cartModal');
+        const itemsContainer = document.getElementById('cartItems');
+        
+        // Рендерим товары в корзине
+        let cartHTML = '';
+        let subtotal = 0;
+        
+        Object.entries(cart).forEach(([productId, qty]) => {
+            const product = products.find(p => p.id == productId);
+            if (!product) return;
+            
+            const itemTotal = product.price * qty;
+            subtotal += itemTotal;
+            
+            cartHTML += `
+                <div class="cart-item">
+                    <div class="cart-item-image">📷</div>
+                    <div class="cart-item-info">
+                        <div class="cart-item-name">${product.name}</div>
+                        <div class="cart-item-price">${formatPrice(product.price)}₸ × ${qty}</div>
+                        <div class="cart-item-controls">
+                            <div class="qty-control">
+                                <button class="qty-btn" onclick="changeQty(${product.id}, -1)">−</button>
+                                <span class="qty-display">${qty}</span>
+                                <button class="qty-btn" onclick="changeQty(${product.id}, 1)">+</button>
+                            </div>
+                            <span style="margin-left: auto; font-weight: bold;">${formatPrice(itemTotal)}₸</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        itemsContainer.innerHTML = cartHTML;
+        
+        // Обновляем итоговую сумму
+        document.getElementById('cartSubtotal').textContent = `${formatPrice(subtotal)}₸`;
+        document.getElementById('cartTotal').textContent = `${formatPrice(subtotal)}₸`;
+        
+        // Показываем бонусы
+        const bonuses = Math.floor(subtotal * 0.03); // 3% бонусов
+        if (bonuses > 0) {
+            document.getElementById('bonusRow').style.display = 'flex';
+            document.getElementById('cartBonus').textContent = `+${formatPrice(bonuses)}₸`;
+        }
+        
+        // Показываем допродажи
+        showUpsells();
+        
+        modal.classList.add('active');
+    }
+
+    function showUpsells() {
+        const upsellSection = document.getElementById('upsellSection');
+        const upsellContainer = document.getElementById('upsellItems');
+        
+        // Берём 3 случайных товара которых нет в корзине
+        const availableProducts = products.filter(p => !cart[p.id]);
+        const randomProducts = availableProducts
+            .sort(() => Math.random() - 0.5)
+            .slice(0, 3);
+        
+        if (randomProducts.length > 0) {
+            upsellSection.style.display = 'block';
+            upsellContainer.innerHTML = randomProducts.map(product => `
+                <div class="upsell-item">
+                    <div class="upsell-item-image">📷</div>
+                    <div class="upsell-item-info">
+                        <div class="upsell-item-name">${product.name}</div>
+                        <div class="upsell-item-price">${formatPrice(product.price)}₸</div>
+                    </div>
+                    <button class="add-upsell-btn" onclick="addUpsell(${product.id})">+</button>
+                </div>
+            `).join('');
+        } else {
+            upsellSection.style.display = 'none';
+        }
+    }
+
+    window.addUpsell = function(productId) {
+        cart[productId] = 1;
+        showCart(); // Обновляем корзину
+        renderProducts(); // Обновляем каталог
+        updateMotivation();
+    };
+
+    window.closeCart = function() {
+        document.getElementById('cartModal').classList.remove('active');
+    };
+
+    window.selectPayment = function(method) {
+        selectedPaymentMethod = method;
+        document.querySelectorAll('.payment-option').forEach(opt => {
+            opt.classList.toggle('active', opt.dataset.method === method);
+        });
+    };
+
+    window.confirmOrder = async function() {
+        if (!tg) return;
+
+        closeCart();
+        tg.MainButton.showProgress();
+
+        try {
+            const orderData = {
+                user_id: tg.initDataUnsafe.user?.id,
+                cart: cart,
+                payment_method: selectedPaymentMethod,
+                notes: document.getElementById('orderComment').value || ''
+            };
+
+            const response = await fetch('/api/orders/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(orderData)
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                const bonuses = Math.floor(result.total * 0.03);
+                
+                tg.showAlert(
+                    `✅ Заказ #${result.order_id} принят!\n\n` +
+                    `💰 Сумма: ${formatPrice(result.total)}₸\n` +
+                    `🎁 Бонусов начислено: +${formatPrice(bonuses)}₸\n\n` +
+                    `Спасибо за заказ! Менеджер свяжется с вами в ближайшее время.`
+                );
+
+                cart = {};
+                updateCartDisplay();
+                renderProducts();
+                updateMotivation();
+
+                setTimeout(() => tg.close(), 3000);
+            } else {
+                throw new Error(result.error || 'Ошибка создания заказа');
+            }
+
+        } catch (error) {
+            console.error('Ошибка заказа:', error);
+            tg.showAlert('❌ Ошибка: ' + error.message);
+        } finally {
+            tg.MainButton.hideProgress();
+        }
+    };
 
     async function loadData() {
         try {
@@ -555,55 +1024,6 @@
             console.error('Ошибка загрузки:', error);
         } finally {
             hideLoader();
-        }
-    }
-
-    async function processOrder() {
-        if (!tg) return;
-
-        tg.MainButton.showProgress();
-
-        try {
-            const orderData = {
-                user_id: tg.initDataUnsafe.user?.id,
-                cart: cart,
-                payment_method: 'cash',
-                notes: ''
-            };
-
-            console.log('Отправляем заказ:', orderData);
-
-            const response = await fetch('/api/orders/create', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(orderData)
-            });
-
-            console.log('Ответ сервера:', response.status);
-            const result = await response.json();
-            console.log('Данные:', result);
-
-            if (response.ok && result.success) {
-                tg.showAlert(
-                    `✅ Заказ #${result.order_id} принят!\n\n` +
-                    `💰 Сумма: ${result.total.toLocaleString()}₸\n` +
-                    `🎁 Бонусов: +${result.bonus_earned.toLocaleString()}₸`
-                );
-
-                cart = {};
-                updateCartDisplay();
-                renderProducts();
-
-                setTimeout(() => tg.close(), 2000);
-            } else {
-                throw new Error(result.error || 'Ошибка создания заказа');
-            }
-
-        } catch (error) {
-            console.error('Ошибка заказа:', error);
-            tg.showAlert('❌ Ошибка: ' + error.message);
-        } finally {
-            tg.MainButton.hideProgress();
         }
     }
 
@@ -634,7 +1054,7 @@
             if (regResponse.ok) {
                 needsRegistration = false;
                 document.getElementById('regModal').style.display = 'none';
-                processOrder();
+                showCart();
             } else {
                 throw new Error('Ошибка при сохранении данных');
             }
@@ -657,7 +1077,7 @@
                     return;
                 }
 
-                processOrder();
+                showCart();
             });
         } else {
             console.warn('Telegram WebApp not detected (ok for browser test).');
@@ -670,7 +1090,13 @@
     const searchInput = document.getElementById('searchInput');
     if (searchInput) {
         searchInput.addEventListener('input', (e) => {
-            console.log('Поиск по:', (e.target.value || '').toLowerCase());
+            const query = e.target.value.toLowerCase();
+            if (query) {
+                const filtered = products.filter(p => 
+                    p.name.toLowerCase().includes(query)
+                );
+                // Можно добавить фильтрацию товаров
+            }
         });
     }
 
