@@ -1429,3 +1429,30 @@ if __name__ == '__main__':
     port = int(os.getenv('PORT', 8080))
     # access_log=None полностью убирает уведомления о входах
     web.run_app(app, host='0.0.0.0', port=port, access_log=None)
+async def update_client_profile_api(request):
+    """Обновление профиля клиента из WebApp"""
+    data = await request.json()
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.telegram_id == data['user_id']).first()
+        if user:
+            from models.user import Client
+            client = user.client
+            if not client:
+                client = Client(user_id=user.id)
+                db.add(client)
+
+            client.company_name = data['company_name']
+            client.address = data['address']
+            client.contact_phone = data['contact_phone']
+            db.commit()
+            
+            return web.json_response({'success': True})
+        else:
+            return web.json_response({'success': False, 'error': 'User not found'}, status=404)
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Profile update error: {e}")
+        return web.json_response({'success': False, 'error': str(e)}, status=500)
+    finally:
+        db.close()
