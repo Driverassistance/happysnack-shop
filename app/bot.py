@@ -1060,6 +1060,281 @@ async def callback_back(callback: types.CallbackQuery):
     
     await callback.answer()
 
+@dp.callback_query(F.data == "my_orders")
+async def callback_my_orders(callback: types.CallbackQuery):
+    """История заказов клиента"""
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.telegram_id == callback.from_user.id).first()
+        if not user or not user.client:
+            await callback.answer("❌ Клиент не найден", show_alert=True)
+            return
+
+        client = user.client
+        orders = db.query(Order).filter(
+            Order.client_id == client.id
+        ).order_by(Order.created_at.desc()).limit(10).all()
+
+        if not orders:
+            await callback.message.edit_text(
+                "📦 <b>Ваши заказы</b>\n\n"
+                "У вас пока нет заказов.\n"
+                "Откройте каталог и сделайте первый заказ!",
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="🛒 Открыть каталог", web_app=WebAppInfo(url=WEBAPP_URL))],
+                    [InlineKeyboardButton(text="👈 Назад", callback_data="back_to_start")]
+                ])
+            )
+            await callback.answer()
+            return
+
+        # Формируем список заказов
+        orders_text = "📦 <b>Ваши заказы</b>\n\n"
+        
+        status_emoji = {
+            'new': '🆕',
+            'pending': '⏳',
+            'confirmed': '✅',
+            'in_progress': '🚚',
+            'delivered': '✅',
+            'cancelled': '❌'
+        }
+        
+        status_names = {
+            'new': 'Новый',
+            'pending': 'Ожидает',
+            'confirmed': 'Подтвержден',
+            'in_progress': 'В доставке',
+            'delivered': 'Доставлен',
+            'cancelled': 'Отменён'
+        }
+
+        keyboard_buttons = []
+        
+        for order in orders[:5]:
+            emoji = status_emoji.get(order.status, '📦')
+            status_name = status_names.get(order.status, order.status)
+            
+            orders_text += (
+                f"{emoji} <b>Заказ #{order.id}</b>\n"
+                f"📅 {order.created_at.strftime('%d.%m.%Y %H:%M')}\n"
+                f"💰 {int(order.final_total):,}₸\n"
+                f"📊 Статус: {status_name}\n\n"
+            )
+            
+            if order.status == 'delivered':
+                keyboard_buttons.append([
+                    InlineKeyboardButton(
+                        text=f"🔄 Повторить #{order.id}",
+                        callback_data=f"repeat_order_{order.id}"
+                    )
+                ])
+
+        keyboard_buttons.append([InlineKeyboardButton(text="👈 Назад", callback_data="back_to_start")])
+
+        await callback.message.edit_text(
+            orders_text,
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
+        )
+
+    finally:
+        db.close()
+    
+    await callback.answer()
+
+@dp.callback_query(F.data.startswith("repeat_order_"))
+async def callback_repeat_order(callback: types.CallbackQuery):
+    """Повторить заказ"""
+    order_id = int(callback.data.split("_")[2])
+    
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.telegram_id == callback.from_user.id).first()
+        if not user or not user.client:
+            await callback.answer("❌ Клиент не найден", show_alert=True)
+            return
+
+        original_order = db.query(Order).filter(Order.id == order_id).first()
+        if not original_order:
+            await callback.answer("❌ Заказ не найден", show_alert=True)
+            return
+
+        import random
+        new_order_number = f"ORD-{random.randint(10000, 99999)}"
+        
+        new_order = Order(
+            order_number=new_order_number,
+            client_id=user.client.id,
+            total=original_order.total,
+            final_total=original_order.final_total,
+            status='new',
+            delivery_address=original_order.delivery_address
+        )
+        db.add(new_order)
+        db.flush()
+
+        items_text = ""
+        for item in original_order.items:
+            new_item = OrderItem(
+                order_id=new_order.id,
+                product_id=item.product_id,
+                product_name=item.product_name,
+                quantity=item.quantity,
+                price=item.price,
+                subtotal=item.subtotal
+            )
+            db.add(new_item)
+            items_text += f"• {item.product_name} x{item.quantity}\n"
+
+        db.commit()
+
+        await callback.message.answer(
+            f"✅ <b>Заказ повторён!</b>\n\n"
+            f"📦 Новый заказ #{new_order.id}\n\n"
+            f"<b>Товары:</b>\n{items_text}\n"
+            f"💰 Сумма: {int(new_order.final_total):,}₸\n\n"
+            f"⏰ Ожидайте звонка менеджера!",
+            parse_mode="HTML"
+        )
+
+        for admin_id in ADMIN_IDS:
+            await bot.send_message(
+                admin_id,
+                f"🔄 <b>ПОВТОРНЫЙ ЗАКАЗ #{new_order.id}</b>\n\n"
+                f"👤 {user.client.company_name}\n"
+                f"📞 {user.client.contact_phone}\n"
+                f"💰 {int(new_order.final_total):,}₸\n\n"
+                f"(Повтор заказа #{original_order.id})",
+                parse_mode="HTML"
+            )
+
+        await callback.answer("✅ Заказ повторён!", show_alert=True)
+
+    except Exception as e:
+        logger.error(f"Repeat order error: {e}")
+        db.rollback()
+        await callback.answer("❌ Ошибка при повторении заказа", show_alert=True)
+    finally:
+        db.close()
+
+@dp.callback_query(F.data == "my_bonuses")
+async def callback_my_bonuses(callback: types.CallbackQuery):
+    """История бонусов клиента"""
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.telegram_id == callback.from_user.id).first()
+        if not user or not user.client:
+            await callback.answer("❌ Клиент не найден", show_alert=True)
+            return
+
+        client = user.client
+        
+        transactions = db.query(BonusTransaction).filter(
+            BonusTransaction.client_id == client.id
+        ).order_by(BonusTransaction.created_at.desc()).limit(10).all()
+
+        text = (
+            f"💎 <b>Мои бонусы</b>\n\n"
+            f"💰 Текущий баланс: <b>{int(client.bonus_balance):,}₸</b>\n\n"
+        )
+
+        if transactions:
+            text += "<b>История операций:</b>\n\n"
+            
+            for trans in transactions[:10]:
+                emoji = "➕" if trans.type == "earn" else "➖"
+                sign = "+" if trans.type == "earn" else "-"
+                
+                text += (
+                    f"{emoji} {sign}{int(trans.amount):,}₸\n"
+                    f"📅 {trans.created_at.strftime('%d.%m.%Y')}\n"
+                    f"📝 {trans.description}\n\n"
+                )
+        else:
+            text += "Пока нет операций с бонусами.\n\n"
+
+        text += (
+            "ℹ️ <b>Как работают бонусы:</b>\n"
+            "• Начисляются за каждую покупку\n"
+            "• Можно оплатить до 100% заказа\n"
+            "• Срок действия: 90 дней"
+        )
+
+        await callback.message.edit_text(
+            text,
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="👈 Назад", callback_data="back_to_start")]
+            ])
+        )
+
+    finally:
+        db.close()
+    
+    await callback.answer()
+
+@dp.callback_query(F.data == "client_stats")
+async def callback_client_stats(callback: types.CallbackQuery):
+    """Статистика клиента"""
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.telegram_id == callback.from_user.id).first()
+        if not user or not user.client:
+            await callback.answer("❌ Клиент не найден", show_alert=True)
+            return
+
+        client = user.client
+        
+        total_orders = db.query(Order).filter(Order.client_id == client.id).count()
+        
+        total_spent = db.query(func.sum(Order.final_total)).filter(
+            Order.client_id == client.id
+        ).scalar() or 0
+        
+        avg_order = total_spent / total_orders if total_orders > 0 else 0
+        
+        top_products = db.query(
+            OrderItem.product_name,
+            func.sum(OrderItem.quantity).label('total_qty')
+        ).join(Order).filter(
+            Order.client_id == client.id
+        ).group_by(OrderItem.product_name).order_by(
+            func.sum(OrderItem.quantity).desc()
+        ).limit(3).all()
+
+        text = (
+            f"📊 <b>Ваша статистика</b>\n\n"
+            f"📦 Всего заказов: <b>{total_orders}</b>\n"
+            f"💰 Сумма покупок: <b>{int(total_spent):,}₸</b>\n"
+            f"📈 Средний чек: <b>{int(avg_order):,}₸</b>\n\n"
+        )
+
+        if top_products:
+            text += "<b>🏆 Ваши любимые товары:</b>\n"
+            for i, (product_name, qty) in enumerate(top_products, 1):
+                text += f"{i}. {product_name} (×{int(qty)})\n"
+            text += "\n"
+
+        text += (
+            f"💎 Бонусный баланс: <b>{int(client.bonus_balance):,}₸</b>\n"
+            f"💳 Доступный кредит: <b>{int(client.credit_limit - client.debt):,}₸</b>"
+        )
+
+        await callback.message.edit_text(
+            text,
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="👈 Назад", callback_data="back_to_start")]
+            ])
+        )
+
+    finally:
+        db.close()
+    
+    await callback.answer()
+
 # ============================================
 # ЗАПУСК БОТА
 # ============================================
