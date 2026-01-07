@@ -1201,8 +1201,24 @@ async def create_order_from_webapp(request):
             return web.json_response({'success': False, 'error': 'Пользователь не найден'}, status=404)
         
         client = user.client
-        # Здесь должна быть логика расчета total на основе cart
-        total = 0 
+        
+        # Рассчитываем total на основе корзины
+        total = 0
+        order_items_list = []
+        
+        for product_id, quantity in cart.items():
+            product = db.query(Product).filter(Product.id == int(product_id)).first()
+            if product:
+                price = float(product.price)
+                subtotal = price * quantity
+                total += subtotal
+                order_items_list.append({
+                    'product_id': product.id,
+                    'product_name': product.name,
+                    'quantity': quantity,
+                    'price': price,
+                    'subtotal': subtotal
+                })
         
         import random
         order_number = f"ORD-{random.randint(10000, 99999)}"
@@ -1215,15 +1231,54 @@ async def create_order_from_webapp(request):
         )
         db.add(order)
         db.flush()
-
-        # Логика для позиций заказа (items), если они переданы
-        # for item_data in cart.values():
-        #     ... (твой код обработки items)
-
+        
+        # Создаём позиции заказа
+        for item_data in order_items_list:
+            order_item = OrderItem(
+                order_id=order.id,
+                product_id=item_data['product_id'],
+                product_name=item_data['product_name'],
+                quantity=item_data['quantity'],
+                price=item_data['price'],
+                subtotal=item_data['subtotal']
+            )
+            db.add(order_item)
+        
         db.commit()
-        return web.json_response({'success': True, 'order_id': order.id, 'total': total, 'bonus_earned': 0})
+        db.refresh(order)
+        
+        # Отправляем уведомление админу через бота
+        try:
+            from bot import bot
+            import os
+            admin_id = int(os.getenv('ADMIN_TELEGRAM_ID', '473294026'))
+            
+            items_text = '\n'.join([f"• {item['product_name']} x{item['quantity']} = {int(item['subtotal']):,}₸" 
+                                   for item in order_items_list])
+            
+            message = (
+                f"🔔 <b>Новый заказ #{order.id}</b>\n\n"
+                f"👤 Клиент: {client.company_name}\n"
+                f"📞 Телефон: {client.contact_phone}\n"
+                f"📍 Адрес: {client.address}\n\n"
+                f"<b>Товары:</b>\n{items_text}\n\n"
+                f"💰 <b>Итого: {int(total):,}₸</b>"
+            )
+            
+            await bot.send_message(admin_id, message, parse_mode='HTML')
+        except Exception as notify_error:
+            logger.error(f"Не удалось отправить уведомление: {notify_error}")
+        
+        return web.json_response({
+            'success': True, 
+            'order_id': order.id, 
+            'total': int(total), 
+            'bonus_earned': 0
+        })
     except Exception as e:
-        if db: db.rollback()
+        if db: 
+            db.rollback()
+        logger.error(f"Ошибка создания заказа: {e}")
         return web.json_response({'error': str(e)}, status=500)
     finally:
         db.close()
