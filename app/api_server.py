@@ -1,9 +1,9 @@
 """
-import logging
-logger = logging.getLogger(__name__)
 API сервер для Telegram WebApp и Admin Dashboard
 Полная версия со всеми endpoints
 """
+import logging
+logger = logging.getLogger(__name__)
 from aiohttp import web
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine, func, desc
