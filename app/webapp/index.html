@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#FF6B35">
     <title>HappySnack - Каталог</title>
-    <link rel="manifest" href="manifest.json">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         * {
@@ -16,9 +15,9 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-            background: var(--tg-theme-bg-color, #ffffff);
-            color: var(--tg-theme-text-color, #000000);
-            padding-bottom: 80px;
+            background: #f5f5f5;
+            color: #333;
+            padding-bottom: 140px;
         }
 
         .header {
@@ -58,6 +57,7 @@
             overflow-x: auto;
             padding: 15px;
             gap: 10px;
+            background: white;
             -webkit-overflow-scrolling: touch;
         }
 
@@ -73,12 +73,12 @@
             white-space: nowrap;
             cursor: pointer;
             transition: all 0.3s;
+            color: #333;
         }
 
         .category-chip.active {
             background: #FF6B35;
             color: white;
-            border-color: #FF6B35;
         }
 
         .products {
@@ -161,7 +161,6 @@
 
         .qty-btn:disabled {
             background: #ccc;
-            cursor: not-allowed;
         }
 
         .qty-display {
@@ -177,7 +176,6 @@
             padding: 15px 20px;
             margin: 15px;
             border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
         }
 
         .discount-banner h3 {
@@ -185,61 +183,56 @@
             margin-bottom: 8px;
         }
 
-        .discount-banner p {
-            font-size: 14px;
-            opacity: 0.95;
-        }
-
-        .motivation-banner {
-            background: linear-gradient(135deg, #9C27B0 0%, #BA68C8 100%);
-            color: white;
+        /* СТАТУС БАР ВНИЗУ */
+        .bottom-status-bar {
+            position: fixed;
+            bottom: 70px;
+            left: 0;
+            right: 0;
+            background: white;
             padding: 15px 20px;
-            margin: 15px;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(156, 39, 176, 0.3);
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            z-index: 999;
         }
 
-        .motivation-banner h3 {
-            font-size: 16px;
+        .status-bar-header {
+            display: flex;
+            justify-content: space-between;
             margin-bottom: 10px;
         }
 
+        .status-bar-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .status-bar-amount {
+            font-size: 14px;
+            color: #666;
+        }
+
         .progress-bar {
-            background: rgba(255,255,255,0.3);
+            height: 8px;
+            background: #f0f0f0;
             border-radius: 10px;
-            height: 20px;
             overflow: hidden;
-            margin: 10px 0;
+            margin-bottom: 8px;
         }
 
         .progress-fill {
-            background: white;
             height: 100%;
-            transition: width 0.3s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .progress-fill.red { background: #FF6B35; }
+        .progress-fill.yellow { background: #FFC107; }
+        .progress-fill.green { background: #4CAF50; }
+
+        .status-message {
             font-size: 12px;
-            font-weight: bold;
-            color: #9C27B0;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 40px;
             color: #666;
-        }
-
-        .empty-state {
             text-align: center;
-            padding: 60px 20px;
-            color: #666;
-        }
-
-        .empty-state-icon {
-            font-size: 64px;
-            margin-bottom: 20px;
-            opacity: 0.3;
         }
 
         #loader {
@@ -254,13 +247,9 @@
             justify-content: center;
             align-items: center;
             z-index: 10000;
-            transition: opacity 0.3s ease;
         }
 
-        #loader.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
+        #loader.hidden { display: none; }
 
         .loader-spinner {
             width: 50px;
@@ -279,10 +268,9 @@
         .loader-text {
             color: white;
             margin-top: 20px;
-            font-size: 16px;
         }
 
-        /* МОДАЛЬНОЕ ОКНО КОРЗИНЫ */
+        /* КОРЗИНА */
         .cart-modal {
             display: none;
             position: fixed;
@@ -293,24 +281,15 @@
             background: rgba(0,0,0,0.7);
             z-index: 9999;
             overflow-y: auto;
-            animation: fadeIn 0.3s;
         }
 
-        .cart-modal.active {
-            display: block;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
+        .cart-modal.active { display: block; }
 
         .cart-content {
-            background: white;
-            margin: 20px;
-            border-radius: 16px;
+            background: #f5f5f5;
+            min-height: 100vh;
             padding: 20px;
-            min-height: calc(100vh - 40px);
+            padding-bottom: 100px;
         }
 
         .cart-header {
@@ -318,8 +297,9 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #f5f5f5;
+            padding: 15px;
+            background: white;
+            border-radius: 12px;
         }
 
         .cart-header h2 {
@@ -328,19 +308,28 @@
         }
 
         .close-cart {
-            font-size: 28px;
+            font-size: 32px;
             cursor: pointer;
             color: #999;
             background: none;
             border: none;
         }
 
+        .cart-items-section {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
         .cart-item {
             display: flex;
             gap: 15px;
             padding: 15px 0;
-            border-bottom: 1px solid #f5f5f5;
+            border-bottom: 1px solid #f0f0f0;
         }
+
+        .cart-item:last-child { border-bottom: none; }
 
         .cart-item-image {
             width: 60px;
@@ -351,12 +340,9 @@
             align-items: center;
             justify-content: center;
             font-size: 24px;
-            flex-shrink: 0;
         }
 
-        .cart-item-info {
-            flex: 1;
-        }
+        .cart-item-info { flex: 1; }
 
         .cart-item-name {
             font-weight: 600;
@@ -367,6 +353,7 @@
         .cart-item-price {
             color: #FF6B35;
             font-weight: bold;
+            font-size: 14px;
         }
 
         .cart-item-controls {
@@ -376,101 +363,137 @@
             margin-top: 10px;
         }
 
+        .cart-item-total {
+            margin-left: auto;
+            font-weight: bold;
+            color: #333;
+        }
+
         .upsell-section {
-            margin: 20px 0;
-            padding: 15px;
-            background: #f8f9fa;
+            background: white;
             border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
         }
 
         .upsell-section h3 {
             font-size: 16px;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
             color: #333;
         }
 
-        .upsell-item {
+        .upsell-items {
             display: flex;
             gap: 10px;
-            padding: 10px;
-            background: white;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .upsell-items::-webkit-scrollbar { display: none; }
+
+        .upsell-item {
+            min-width: 150px;
+            padding: 12px;
+            background: #f8f9fa;
             border-radius: 8px;
-            margin-bottom: 10px;
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-
-        .upsell-item:active {
-            transform: scale(0.98);
-        }
-
-        .upsell-item-image {
-            width: 50px;
-            height: 50px;
-            border-radius: 6px;
-            background: #f5f5f5;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-        }
-
-        .upsell-item-info {
-            flex: 1;
         }
 
         .upsell-item-name {
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
-            margin-bottom: 3px;
+            margin-bottom: 5px;
+            color: #333;
         }
 
         .upsell-item-price {
             color: #FF6B35;
-            font-size: 14px;
             font-weight: bold;
+            margin-bottom: 8px;
         }
 
         .add-upsell-btn {
+            width: 100%;
             background: #FF6B35;
             color: white;
             border: none;
             border-radius: 6px;
-            padding: 8px 15px;
-            font-size: 14px;
-            cursor: pointer;
+            padding: 8px;
+            font-weight: 600;
         }
 
         .cart-summary {
-            margin: 20px 0;
-            padding: 15px;
-            background: #f8f9fa;
+            background: white;
             border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
         }
 
         .summary-row {
             display: flex;
             justify-content: space-between;
             padding: 8px 0;
-            font-size: 16px;
+            font-size: 15px;
+            color: #333;
         }
+
+        .summary-row.discount { color: #4CAF50; }
 
         .summary-row.total {
             font-size: 20px;
             font-weight: bold;
             color: #FF6B35;
             padding-top: 15px;
-            border-top: 2px solid #ddd;
+            border-top: 2px solid #f0f0f0;
             margin-top: 10px;
         }
 
+        .bonus-section {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .bonus-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .bonus-checkbox input { width: 20px; height: 20px; }
+
+        .bonus-checkbox label {
+            flex: 1;
+            color: #333;
+        }
+
+        .bonus-amount {
+            font-weight: bold;
+            color: #9C27B0;
+        }
+
+        .bonus-info {
+            font-size: 13px;
+            color: #666;
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+
         .payment-method {
-            margin: 20px 0;
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
         }
 
         .payment-method h3 {
             font-size: 16px;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
             color: #333;
         }
 
@@ -481,28 +504,53 @@
 
         .payment-option {
             flex: 1;
-            padding: 12px;
+            padding: 14px;
             border: 2px solid #ddd;
             border-radius: 8px;
             text-align: center;
             cursor: pointer;
-            transition: all 0.3s;
+            color: #333;
+            font-weight: 600;
         }
 
         .payment-option.active {
             border-color: #FF6B35;
             background: #FFF5F2;
             color: #FF6B35;
-            font-weight: bold;
+        }
+
+        .delivery-date {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .delivery-date h3 {
+            font-size: 16px;
+            margin-bottom: 12px;
+            color: #333;
+        }
+
+        .date-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 15px;
+            color: #333;
         }
 
         .comment-section {
-            margin: 20px 0;
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
         }
 
         .comment-section h3 {
             font-size: 16px;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
             color: #333;
         }
 
@@ -514,11 +562,12 @@
             font-size: 14px;
             resize: vertical;
             min-height: 80px;
+            color: #333;
         }
 
         .confirm-order-btn {
             width: 100%;
-            padding: 16px;
+            padding: 18px;
             background: linear-gradient(135deg, #FF6B35 0%, #FF8C61 100%);
             color: white;
             border: none;
@@ -526,12 +575,6 @@
             font-size: 18px;
             font-weight: bold;
             cursor: pointer;
-            margin-top: 20px;
-        }
-
-        .confirm-order-btn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
         }
 
         #regModal {
@@ -578,14 +621,13 @@
             border-radius: 8px;
             font-size: 16px;
             font-weight: bold;
-            cursor: pointer;
         }
     </style>
 </head>
 <body>
     <div id="loader">
         <div class="loader-spinner"></div>
-        <div class="loader-text">Загрузка каталога...</div>
+        <div class="loader-text">Загрузка...</div>
     </div>
 
     <div class="header">
@@ -601,18 +643,20 @@
         <p>При первом заказе от 10,000₸ скидка 5%</p>
     </div>
 
-    <div class="motivation-banner" id="motivationBanner" style="display: none;">
-        <h3 id="motivationText">💎 До бонуса осталось совсем чуть-чуть!</h3>
-        <div class="progress-bar">
-            <div class="progress-fill" id="motivationProgress" style="width: 0%">0%</div>
-        </div>
-        <p id="motivationSubtext">Добавьте ещё товаров и получите подарок!</p>
-    </div>
-
     <div class="categories" id="categories"></div>
     <div class="products" id="products"></div>
 
-    <!-- МОДАЛЬНОЕ ОКНО КОРЗИНЫ -->
+    <div class="bottom-status-bar" id="bottomStatusBar" style="display: none;">
+        <div class="status-bar-header">
+            <span class="status-bar-title" id="statusTitle">До бесплатной доставки</span>
+            <span class="status-bar-amount" id="statusAmount">0₸</span>
+        </div>
+        <div class="progress-bar">
+            <div class="progress-fill red" id="statusProgress" style="width: 0%"></div>
+        </div>
+        <div class="status-message" id="statusMessage">Добавьте товаров на 15,000₸</div>
+    </div>
+
     <div class="cart-modal" id="cartModal">
         <div class="cart-content">
             <div class="cart-header">
@@ -620,11 +664,13 @@
                 <button class="close-cart" onclick="closeCart()">×</button>
             </div>
 
-            <div id="cartItems"></div>
+            <div class="cart-items-section">
+                <div id="cartItems"></div>
+            </div>
 
             <div class="upsell-section" id="upsellSection" style="display: none;">
                 <h3>🔥 Часто берут вместе</h3>
-                <div id="upsellItems"></div>
+                <div class="upsell-items" id="upsellItems"></div>
             </div>
 
             <div class="cart-summary">
@@ -632,26 +678,44 @@
                     <span>Товары:</span>
                     <span id="cartSubtotal">0₸</span>
                 </div>
-                <div class="summary-row" id="bonusRow" style="display: none;">
-                    <span>💎 Бонусы к начислению:</span>
-                    <span id="cartBonus">0₸</span>
+                <div class="summary-row discount" id="bonusDiscountRow" style="display: none;">
+                    <span>💎 Оплачено бонусами:</span>
+                    <span id="bonusDiscount">0₸</span>
+                </div>
+                <div class="summary-row" id="bonusEarnRow" style="display: none;">
+                    <span>🎁 Бонусов к начислению:</span>
+                    <span id="cartBonus" style="color: #9C27B0; font-weight: bold;">0₸</span>
                 </div>
                 <div class="summary-row total">
-                    <span>Итого:</span>
+                    <span>Итого к оплате:</span>
                     <span id="cartTotal">0₸</span>
+                </div>
+            </div>
+
+            <div class="bonus-section" id="bonusSection" style="display: none;">
+                <div class="bonus-checkbox" onclick="toggleBonusUsage()">
+                    <input type="checkbox" id="useBonusCheckbox">
+                    <label for="useBonusCheckbox">
+                        Использовать бонусы<br>
+                        <small style="color: #666;">Доступно: <span class="bonus-amount" id="availableBonuses">0₸</span></small>
+                    </label>
+                </div>
+                <div class="bonus-info" id="bonusInfo" style="display: none;">
+                    💡 Можно использовать до 70% от суммы заказа
                 </div>
             </div>
 
             <div class="payment-method">
                 <h3>Способ оплаты</h3>
                 <div class="payment-options">
-                    <div class="payment-option active" data-method="cash" onclick="selectPayment('cash')">
-                        💵 Наличные
-                    </div>
-                    <div class="payment-option" data-method="card" onclick="selectPayment('card')">
-                        💳 Безнал
-                    </div>
+                    <div class="payment-option active" data-method="cash" onclick="selectPayment('cash')">💵 Наличные</div>
+                    <div class="payment-option" data-method="card" onclick="selectPayment('card')">💳 Безнал</div>
                 </div>
+            </div>
+
+            <div class="delivery-date">
+                <h3>Желаемая дата доставки</h3>
+                <input type="date" class="date-input" id="deliveryDate">
             </div>
 
             <div class="comment-section">
@@ -659,9 +723,7 @@
                 <textarea class="comment-input" id="orderComment" placeholder="Укажите удобное время доставки, адрес или другие пожелания..."></textarea>
             </div>
 
-            <button class="confirm-order-btn" onclick="confirmOrder()">
-                Подтвердить заказ
-            </button>
+            <button class="confirm-order-btn" onclick="confirmOrder()">Подтвердить заказ</button>
         </div>
     </div>
 
@@ -685,12 +747,17 @@
     let is_first_order = false;
     let needsRegistration = false;
     let selectedPaymentMethod = 'cash';
+    let clientBonusBalance = 0;
+    let useBonuses = false;
+    let hasUnsavedOrder = false;
 
-    // Настройки мотивации (можно будет вынести в дашборд)
-    const MOTIVATION_TIERS = [
-        { threshold: 15000, bonus: 'Бесплатная доставка', emoji: '🚚' },
-        { threshold: 25000, bonus: 'Упаковка кваса в подарок', emoji: '🥤' },
-        { threshold: 50000, bonus: '5% скидка на заказ', emoji: '💰' }
+    const BONUS_EARN_PERCENT = 3;
+    const BONUS_MAX_USE_PERCENT = 70;
+
+    const STATUS_TIERS = [
+        { threshold: 15000, title: 'Бесплатная доставка', emoji: '🚚' },
+        { threshold: 25000, title: 'Упаковка кваса в подарок', emoji: '🥤' },
+        { threshold: 50000, title: '5% скидка на заказ', emoji: '💰' }
     ];
 
     function getTg() {
@@ -699,20 +766,11 @@
 
     function hideLoader() {
         const loader = document.getElementById('loader');
-        if (loader) {
-            loader.classList.add('hidden');
-            setTimeout(() => loader.style.display = 'none', 300);
-        }
+        if (loader) loader.classList.add('hidden');
     }
 
     function formatPrice(price) {
         return parseInt(price).toLocaleString();
-    }
-
-    function getProductWord(count) {
-        if (count % 10 === 1 && count % 100 !== 11) return 'товар';
-        if ([2,3,4].includes(count % 10) && ![12,13,14].includes(count % 100)) return 'товара';
-        return 'товаров';
     }
 
     function renderCategories() {
@@ -721,16 +779,13 @@
 
         const allButton = `<div class="category-chip active" data-category="all" onclick="filterByCategory('all')">Все</div>`;
         const categoryButtons = categories.map(cat => 
-            `<div class="category-chip" data-category="${cat.id}" onclick="filterByCategory(${cat.id})">
-                ${cat.icon} ${cat.name}
-            </div>`
+            `<div class="category-chip" data-category="${cat.id}" onclick="filterByCategory(${cat.id})">${cat.icon} ${cat.name}</div>`
         ).join('');
 
         container.innerHTML = allButton + categoryButtons;
 
         if (is_first_order) {
-            const banner = document.getElementById('discountBanner');
-            if (banner) banner.style.display = 'block';
+            document.getElementById('discountBanner').style.display = 'block';
         }
     }
 
@@ -738,36 +793,28 @@
         const productsContainer = document.getElementById('products');
         if (!productsContainer) return;
 
-        if (!products || !products.length) {
-            productsContainer.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-state-icon">🔍</div>
-                    <p>Товары не найдены</p>
-                </div>
-            `;
+        if (!products.length) {
+            productsContainer.innerHTML = '<div style="text-align:center;padding:40px;color:#666;">Товары не найдены</div>';
             return;
         }
 
         productsContainer.innerHTML = products.map(product => {
-            if (currentCategory !== 'all' && product.category_id != currentCategory) {
-                return '';
-            }
+            if (currentCategory !== 'all' && product.category_id != currentCategory) return '';
 
             const count = cart[product.id] || 0;
 
             return `
                 <div class="product-card">
                     ${product.photo_url 
-                        ? `<img src="${product.photo_url}" alt="${product.name}" class="product-image" loading="lazy">`
+                        ? `<img src="${product.photo_url}" alt="${product.name}" class="product-image">`
                         : '<div class="product-image placeholder">📷</div>'
                     }
                     <div class="product-info">
                         <div class="product-name">${product.name}</div>
-                        <div class="product-price">${parseInt(product.price).toLocaleString()} ₸</div>
-                        
+                        <div class="product-price">${formatPrice(product.price)} ₸</div>
                         <div class="product-actions">
                             ${count === 0 
-                                ? `<button class="qty-btn" style="width: 100%;" onclick="changeQty(${product.id}, 1)">Добавить</button>`
+                                ? `<button class="qty-btn" style="width:100%;" onclick="changeQty(${product.id}, 1)">Добавить</button>`
                                 : `<div class="qty-control">
                                        <button class="qty-btn" onclick="changeQty(${product.id}, -1)">−</button>
                                        <span class="qty-display">${count}</span>
@@ -804,71 +851,92 @@
             cart[productId] = newQty;
         }
 
+        hasUnsavedOrder = Object.keys(cart).length > 0;
         renderProducts();
         updateCartDisplay();
-        updateMotivation();
+        updateStatusBar();
+        
+        if (document.getElementById('cartModal').classList.contains('active')) {
+            renderCartItems();
+            updateCartSummary();
+        }
     };
 
     function updateCartDisplay() {
         const itemCount = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
-        const total = calculateTotal();
+        const total = calculateSubtotal();
 
         if (!tg || !tg.MainButton) return;
 
         if (itemCount === 0) {
             tg.MainButton.hide();
+            document.getElementById('bottomStatusBar').style.display = 'none';
+            hasUnsavedOrder = false;
             return;
         }
 
         tg.MainButton.setText(`Оформить заказ: ${formatPrice(total)}₸`);
         tg.MainButton.show();
         tg.MainButton.enable();
+        
+        updateStatusBar();
     }
 
-    function calculateTotal() {
+    function calculateSubtotal() {
         return Object.entries(cart).reduce((sum, [id, qty]) => {
             const product = products.find(p => String(p.id) === String(id));
-            return sum + (product ? (product.price || 0) * qty : 0);
+            return sum + (product ? product.price * qty : 0);
         }, 0);
     }
 
-    function updateMotivation() {
-        const total = calculateTotal();
-        const banner = document.getElementById('motivationBanner');
+    function updateStatusBar() {
+        const total = calculateSubtotal();
+        const bar = document.getElementById('bottomStatusBar');
         
-        // Находим ближайший порог
-        const nextTier = MOTIVATION_TIERS.find(tier => total < tier.threshold);
+        if (total === 0) {
+            bar.style.display = 'none';
+            return;
+        }
+
+        bar.style.display = 'block';
         
-        if (nextTier && total > 0) {
-            const remaining = nextTier.threshold - total;
-            const progress = (total / nextTier.threshold) * 100;
+        const currentTier = STATUS_TIERS.find(tier => total < tier.threshold);
+        
+        if (currentTier) {
+            const progress = Math.min((total / currentTier.threshold) * 100, 100);
+            const remaining = currentTier.threshold - total;
             
-            banner.style.display = 'block';
-            document.getElementById('motivationText').textContent = 
-                `${nextTier.emoji} ${nextTier.bonus}`;
-            document.getElementById('motivationProgress').style.width = `${progress}%`;
-            document.getElementById('motivationProgress').textContent = `${Math.round(progress)}%`;
-            document.getElementById('motivationSubtext').textContent = 
-                `Добавьте ещё на ${formatPrice(remaining)}₸`;
-        } else {
-            banner.style.display = 'none';
+            document.getElementById('statusTitle').textContent = `${currentTier.emoji} ${currentTier.title}`;
+            document.getElementById('statusAmount').textContent = `${formatPrice(Math.max(0, remaining))}₸`;
+            document.getElementById('statusProgress').style.width = `${progress}%`;
+            document.getElementById('statusMessage').textContent = 
+                remaining > 0 ? `Добавьте ещё на ${formatPrice(remaining)}₸` : '🎉 Порог достигнут!';
+            
+            const progressEl = document.getElementById('statusProgress');
+            progressEl.className = 'progress-fill';
+            if (progress < 50) progressEl.classList.add('red');
+            else if (progress < 90) progressEl.classList.add('yellow');
+            else progressEl.classList.add('green');
         }
     }
 
     function showCart() {
-        const modal = document.getElementById('cartModal');
-        const itemsContainer = document.getElementById('cartItems');
+        renderCartItems();
+        showUpsells();
+        updateCartSummary();
+        setupDatePicker();
+        document.getElementById('cartModal').classList.add('active');
+    }
+
+    function renderCartItems() {
+        const container = document.getElementById('cartItems');
         
-        // Рендерим товары в корзине
         let cartHTML = '';
-        let subtotal = 0;
-        
         Object.entries(cart).forEach(([productId, qty]) => {
             const product = products.find(p => p.id == productId);
             if (!product) return;
             
             const itemTotal = product.price * qty;
-            subtotal += itemTotal;
             
             cartHTML += `
                 <div class="cart-item">
@@ -882,52 +950,90 @@
                                 <span class="qty-display">${qty}</span>
                                 <button class="qty-btn" onclick="changeQty(${product.id}, 1)">+</button>
                             </div>
-                            <span style="margin-left: auto; font-weight: bold;">${formatPrice(itemTotal)}₸</span>
+                            <span class="cart-item-total">${formatPrice(itemTotal)}₸</span>
                         </div>
                     </div>
                 </div>
             `;
         });
         
-        itemsContainer.innerHTML = cartHTML;
+        container.innerHTML = cartHTML;
+    }
+
+    function updateCartSummary() {
+        const subtotal = calculateSubtotal();
+        let bonusUsed = 0;
+        let finalTotal = subtotal;
         
-        // Обновляем итоговую сумму
-        document.getElementById('cartSubtotal').textContent = `${formatPrice(subtotal)}₸`;
-        document.getElementById('cartTotal').textContent = `${formatPrice(subtotal)}₸`;
-        
-        // Показываем бонусы
-        const bonuses = Math.floor(subtotal * 0.03); // 3% бонусов
-        if (bonuses > 0) {
-            document.getElementById('bonusRow').style.display = 'flex';
-            document.getElementById('cartBonus').textContent = `+${formatPrice(bonuses)}₸`;
+        if (useBonuses && clientBonusBalance > 0) {
+            const maxBonusUse = Math.floor(subtotal * BONUS_MAX_USE_PERCENT / 100);
+            bonusUsed = Math.min(clientBonusBalance, maxBonusUse);
+            finalTotal = subtotal - bonusUsed;
         }
         
-        // Показываем допродажи
-        showUpsells();
+        const bonusEarn = Math.floor(finalTotal * BONUS_EARN_PERCENT / 100);
         
-        modal.classList.add('active');
+        document.getElementById('cartSubtotal').textContent = `${formatPrice(subtotal)}₸`;
+        
+        const bonusDiscountRow = document.getElementById('bonusDiscountRow');
+        if (bonusUsed > 0) {
+            bonusDiscountRow.style.display = 'flex';
+            document.getElementById('bonusDiscount').textContent = `-${formatPrice(bonusUsed)}₸`;
+        } else {
+            bonusDiscountRow.style.display = 'none';
+        }
+        
+        const bonusEarnRow = document.getElementById('bonusEarnRow');
+        if (bonusEarn > 0) {
+            bonusEarnRow.style.display = 'flex';
+            document.getElementById('cartBonus').textContent = `+${formatPrice(bonusEarn)}₸`;
+        } else {
+            bonusEarnRow.style.display = 'none';
+        }
+        
+        document.getElementById('cartTotal').textContent = `${formatPrice(finalTotal)}₸`;
+        
+        updateBonusSection(subtotal);
     }
+
+    function updateBonusSection(subtotal) {
+        const bonusSection = document.getElementById('bonusSection');
+        
+        if (clientBonusBalance > 0) {
+            bonusSection.style.display = 'block';
+            
+            const maxBonusUse = Math.floor(subtotal * BONUS_MAX_USE_PERCENT / 100);
+            const availableToUse = Math.min(clientBonusBalance, maxBonusUse);
+            
+            document.getElementById('availableBonuses').textContent = `${formatPrice(availableToUse)}₸`;
+            
+            const bonusInfo = document.getElementById('bonusInfo');
+            bonusInfo.style.display = useBonuses ? 'block' : 'none';
+        } else {
+            bonusSection.style.display = 'none';
+        }
+    }
+
+    window.toggleBonusUsage = function() {
+        const checkbox = document.getElementById('useBonusCheckbox');
+        useBonuses = checkbox.checked;
+        updateCartSummary();
+    };
 
     function showUpsells() {
         const upsellSection = document.getElementById('upsellSection');
         const upsellContainer = document.getElementById('upsellItems');
         
-        // Берём 3 случайных товара которых нет в корзине
         const availableProducts = products.filter(p => !cart[p.id]);
-        const randomProducts = availableProducts
-            .sort(() => Math.random() - 0.5)
-            .slice(0, 3);
+        const randomProducts = availableProducts.sort(() => Math.random() - 0.5).slice(0, 3);
         
         if (randomProducts.length > 0) {
             upsellSection.style.display = 'block';
             upsellContainer.innerHTML = randomProducts.map(product => `
                 <div class="upsell-item">
-                    <div class="upsell-item-image">📷</div>
-                    <div class="upsell-item-info">
-                        <div class="upsell-item-name">${product.name}</div>
-                        <div class="upsell-item-price">${formatPrice(product.price)}₸</div>
-                    </div>
-                    <button class="add-upsell-btn" onclick="addUpsell(${product.id})">+</button>
+                    <div class="upsell-item-name">${product.name}</div>
+                    <div class="upsell-item-price">${formatPrice(product.price)}₸</div>
+                    <button class="add-upsell-btn" onclick="addUpsell(${product.id})">+ Добавить</button>
                 </div>
             `).join('');
         } else {
@@ -937,13 +1043,27 @@
 
     window.addUpsell = function(productId) {
         cart[productId] = 1;
-        showCart(); // Обновляем корзину
-        renderProducts(); // Обновляем каталог
-        updateMotivation();
+        hasUnsavedOrder = true;
+        renderCartItems();
+        updateCartSummary();
+        renderProducts();
+        updateStatusBar();
     };
 
     window.closeCart = function() {
-        document.getElementById('cartModal').classList.remove('active');
+        if (hasUnsavedOrder && Object.keys(cart).length > 0) {
+            if (tg && tg.showConfirm) {
+                tg.showConfirm('Закрыть корзину без оформления заказа?', (confirmed) => {
+                    if (confirmed) document.getElementById('cartModal').classList.remove('active');
+                });
+            } else {
+                if (confirm('Закрыть корзину без оформления заказа?')) {
+                    document.getElementById('cartModal').classList.remove('active');
+                }
+            }
+        } else {
+            document.getElementById('cartModal').classList.remove('active');
+        }
     };
 
     window.selectPayment = function(method) {
@@ -953,10 +1073,44 @@
         });
     };
 
+    function setupDatePicker() {
+        const dateInput = document.getElementById('deliveryDate');
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        
+        dateInput.min = tomorrow.toISOString().split('T')[0];
+        
+        const maxDate = new Date(today);
+        maxDate.setDate(maxDate.getDate() + 30);
+        dateInput.max = maxDate.toISOString().split('T')[0];
+        
+        dateInput.addEventListener('input', function() {
+            const selectedDate = new Date(this.value);
+            const dayOfWeek = selectedDate.getDay();
+            
+            if (dayOfWeek === 0 || dayOfWeek === 6) {
+                alert('Доставка по выходным не осуществляется. Пожалуйста, выберите будний день.');
+                this.value = '';
+            }
+        });
+    }
+
     window.confirmOrder = async function() {
         if (!tg) return;
 
-        closeCart();
+        const subtotal = calculateSubtotal();
+        let bonusUsed = 0;
+        
+        if (useBonuses && clientBonusBalance > 0) {
+            const maxBonusUse = Math.floor(subtotal * BONUS_MAX_USE_PERCENT / 100);
+            bonusUsed = Math.min(clientBonusBalance, maxBonusUse);
+        }
+        
+        const finalTotal = subtotal - bonusUsed;
+        const bonusEarn = Math.floor(finalTotal * BONUS_EARN_PERCENT / 100);
+
+        document.getElementById('cartModal').classList.remove('active');
         tg.MainButton.showProgress();
 
         try {
@@ -964,7 +1118,9 @@
                 user_id: tg.initDataUnsafe.user?.id,
                 cart: cart,
                 payment_method: selectedPaymentMethod,
-                notes: document.getElementById('orderComment').value || ''
+                notes: document.getElementById('orderComment').value || '',
+                delivery_date: document.getElementById('deliveryDate').value || null,
+                bonus_used: bonusUsed
             };
 
             const response = await fetch('/api/orders/create', {
@@ -976,19 +1132,21 @@
             const result = await response.json();
 
             if (response.ok && result.success) {
-                const bonuses = Math.floor(result.total * 0.03);
+                let message = `✅ Заказ #${result.order_id} принят!\n\n💰 Сумма: ${formatPrice(subtotal)}₸\n`;
                 
-                tg.showAlert(
-                    `✅ Заказ #${result.order_id} принят!\n\n` +
-                    `💰 Сумма: ${formatPrice(result.total)}₸\n` +
-                    `🎁 Бонусов начислено: +${formatPrice(bonuses)}₸\n\n` +
-                    `Спасибо за заказ! Менеджер свяжется с вами в ближайшее время.`
-                );
+                if (bonusUsed > 0) message += `💎 Оплачено бонусами: ${formatPrice(bonusUsed)}₸\n`;
+                message += `💵 К оплате: ${formatPrice(finalTotal)}₸\n`;
+                if (bonusEarn > 0) message += `🎁 Бонусов начислено: +${formatPrice(bonusEarn)}₸\n`;
+                message += `\n🙏 Спасибо за заказ! Менеджер свяжется с вами в ближайшее время.`;
+
+                tg.showAlert(message);
 
                 cart = {};
+                useBonuses = false;
+                hasUnsavedOrder = false;
                 updateCartDisplay();
                 renderProducts();
-                updateMotivation();
+                updateStatusBar();
 
                 setTimeout(() => tg.close(), 3000);
             } else {
@@ -1017,6 +1175,7 @@
             categories = data.categories || [];
             is_first_order = !!data.is_first_order;
             needsRegistration = !!data.needs_registration;
+            clientBonusBalance = data.bonus_balance || 0;
 
             renderCategories();
             renderProducts();
@@ -1070,34 +1229,26 @@
         if (tg) {
             tg.ready();
             tg.expand();
+            tg.enableClosingConfirmation();
 
             tg.MainButton.onClick(async () => {
                 if (needsRegistration) {
                     document.getElementById('regModal').style.display = 'flex';
                     return;
                 }
-
                 showCart();
             });
-        } else {
-            console.warn('Telegram WebApp not detected (ok for browser test).');
+
+            window.addEventListener('beforeunload', (e) => {
+                if (hasUnsavedOrder) {
+                    e.preventDefault();
+                    e.returnValue = '';
+                }
+            });
         }
 
         setTimeout(() => hideLoader(), 8000);
         loadData();
-    }
-
-    const searchInput = document.getElementById('searchInput');
-    if (searchInput) {
-        searchInput.addEventListener('input', (e) => {
-            const query = e.target.value.toLowerCase();
-            if (query) {
-                const filtered = products.filter(p => 
-                    p.name.toLowerCase().includes(query)
-                );
-                // Можно добавить фильтрацию товаров
-            }
-        });
     }
 
     document.addEventListener('DOMContentLoaded', startApp);

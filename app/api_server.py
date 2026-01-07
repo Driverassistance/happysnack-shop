@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from models.user import User, Client, SalesRepresentative
 from models.product import Product, Category
 from models.order import Order, OrderItem
+from models.bonus import BonusTransaction
 import logging
 logger = logging.getLogger(__name__)
 
@@ -1189,49 +1190,71 @@ async def serve_profile_webapp(request):
 
 
 async def create_order_from_webapp(request):
-    """Создать заказ из WebApp"""
+    """Создать заказ из WebApp с поддержкой бонусов"""
     db = SessionLocal()
     try:
         data = await request.json()
         user_id = int(data.get('user_id'))
         cart = data.get('cart', {})
-        
+        payment_method = data.get('payment_method', 'cash')
+        notes = data.get('notes', '')
+        delivery_date = data.get('delivery_date')
+        bonus_used = float(data.get('bonus_used', 0))
+
         user = db.query(User).filter(User.telegram_id == user_id).first()
         if not user or not user.client:
             return web.json_response({'success': False, 'error': 'Пользователь не найден'}, status=404)
-        
+
         client = user.client
-        
+
+        # Настройки бонусов (потом вынесем в дашборд)
+        BONUS_EARN_PERCENT = 3      # 3% начисление
+        BONUS_MAX_USE_PERCENT = 70  # До 70% можно использовать
+
         # Рассчитываем total на основе корзины
-        total = 0
+        subtotal = 0
         order_items_list = []
-        
+
         for product_id, quantity in cart.items():
             product = db.query(Product).filter(Product.id == int(product_id)).first()
             if product:
                 price = float(product.price)
-                subtotal = price * quantity
-                total += subtotal
+                item_total = price * quantity
+                subtotal += item_total
                 order_items_list.append({
                     'product_id': product.id,
                     'product_name': product.name,
                     'quantity': quantity,
                     'price': price,
-                    'subtotal': subtotal
+                    'subtotal': item_total
                 })
+
+        # Проверяем и применяем бонусы
+        max_bonus_use = subtotal * (BONUS_MAX_USE_PERCENT / 100)
+        bonus_used = min(bonus_used, max_bonus_use, client.bonus_balance)
         
+        final_total = subtotal - bonus_used
+
+        # Рассчитываем бонусы к начислению (от итоговой суммы после вычета бонусов)
+        bonus_earned = int(final_total * (BONUS_EARN_PERCENT / 100))
+
+        # Создаём заказ
         import random
         order_number = f"ORD-{random.randint(10000, 99999)}"
+        
         order = Order(
             order_number=order_number,
             client_id=client.id,
-            total=total,
-            final_total=total,
-            status='new'
+            total=subtotal,
+            bonus_used=bonus_used,
+            final_total=final_total,
+            status='new',
+            delivery_date=delivery_date,
+            comment=notes
         )
         db.add(order)
         db.flush()
-        
+
         # Создаём позиции заказа
         for item_data in order_items_list:
             order_item = OrderItem(
@@ -1243,46 +1266,87 @@ async def create_order_from_webapp(request):
                 subtotal=item_data['subtotal']
             )
             db.add(order_item)
-        
+
+        # Списываем использованные бонусы
+        if bonus_used > 0:
+            client.bonus_balance -= bonus_used
+            
+            bonus_transaction = BonusTransaction(
+                client_id=client.id,
+                amount=bonus_used,
+                type='spend',
+                description=f'Оплата заказа #{order.id}'
+            )
+            db.add(bonus_transaction)
+
+        # Начисляем новые бонусы
+        if bonus_earned > 0:
+            client.bonus_balance += bonus_earned
+            
+            bonus_transaction = BonusTransaction(
+                client_id=client.id,
+                amount=bonus_earned,
+                type='earn',
+                description=f'Начисление за заказ #{order.id}',
+                expires_at=datetime.utcnow() + timedelta(days=30)  # 30 дней срок
+            )
+            db.add(bonus_transaction)
+
         db.commit()
         db.refresh(order)
-        
-        # Отправляем уведомление админу через бота
+
+        # Отправляем уведомление админу
         try:
             from bot import bot
             import os
             admin_id = int(os.getenv('ADMIN_TELEGRAM_ID', '473294026'))
-            
-            items_text = '\n'.join([f"• {item['product_name']} x{item['quantity']} = {int(item['subtotal']):,}₸" 
+
+            items_text = '\n'.join([f"• {item['product_name']} x{item['quantity']} = {int(item['subtotal']):,}₸"
                                    for item in order_items_list])
-            
+
             message = (
                 f"🔔 <b>Новый заказ #{order.id}</b>\n\n"
                 f"👤 Клиент: {client.company_name}\n"
                 f"📞 Телефон: {client.contact_phone}\n"
-                f"📍 Адрес: {client.address}\n\n"
-                f"<b>Товары:</b>\n{items_text}\n\n"
-                f"💰 <b>Итого: {int(total):,}₸</b>"
+                f"📍 Адрес: {client.address}\n"
             )
             
+            if delivery_date:
+                message += f"📅 Дата доставки: {delivery_date}\n"
+            
+            message += f"\n<b>Товары:</b>\n{items_text}\n\n"
+            message += f"💰 Сумма товаров: {int(subtotal):,}₸\n"
+            
+            if bonus_used > 0:
+                message += f"💎 Оплачено бонусами: -{int(bonus_used):,}₸\n"
+            
+            message += f"💵 <b>К оплате: {int(final_total):,}₸</b>\n"
+            message += f"💳 Способ: {payment_method}\n"
+            
+            if bonus_earned > 0:
+                message += f"\n🎁 Клиенту начислено бонусов: +{bonus_earned:,}₸"
+            
+            if notes:
+                message += f"\n\n📝 Комментарий: {notes}"
+
             await bot.send_message(admin_id, message, parse_mode='HTML')
         except Exception as notify_error:
             logger.error(f"Не удалось отправить уведомление: {notify_error}")
-        
+
         return web.json_response({
-            'success': True, 
-            'order_id': order.id, 
-            'total': int(total), 
-            'bonus_earned': 0
+            'success': True,
+            'order_id': order.id,
+            'total': int(final_total),
+            'bonus_earned': bonus_earned,
+            'bonus_used': int(bonus_used)
         })
     except Exception as e:
-        if db: 
+        if db:
             db.rollback()
         logger.error(f"Ошибка создания заказа: {e}")
         return web.json_response({'error': str(e)}, status=500)
     finally:
         db.close()
-async def update_client_profile_api(request):
     data = await request.json()
     db = SessionLocal()
     try:
