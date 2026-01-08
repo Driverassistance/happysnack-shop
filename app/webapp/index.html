@@ -270,6 +270,95 @@
             margin-top: 20px;
         }
 
+        /* ВСПЛЫВАЮЩИЙ МОТИВАТОР */
+        .motivator-popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            z-index: 10001;
+            max-width: 90%;
+            width: 350px;
+            animation: popupAppear 0.3s forwards;
+        }
+
+        .motivator-popup.active {
+            display: block;
+        }
+
+        @keyframes popupAppear {
+            to {
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+
+        .motivator-icon {
+            font-size: 64px;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .motivator-title {
+            font-size: 20px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .motivator-message {
+            font-size: 16px;
+            text-align: center;
+            margin-bottom: 20px;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        .motivator-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .motivator-btn {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .motivator-btn.primary {
+            background: #FF6B35;
+            color: white;
+        }
+
+        .motivator-btn.secondary {
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .motivator-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 10000;
+        }
+
+        .motivator-overlay.active {
+            display: block;
+        }
+
         /* КОРЗИНА */
         .cart-modal {
             display: none;
@@ -657,6 +746,19 @@
         <div class="status-message" id="statusMessage">Добавьте товаров на 15,000₸</div>
     </div>
 
+    <!-- ВСПЛЫВАЮЩИЙ МОТИВАТОР -->
+    <div class="motivator-overlay" id="motivatorOverlay" onclick="closeMotivator()"></div>
+    <div class="motivator-popup" id="motivatorPopup">
+        <div class="motivator-icon" id="motivatorIcon">🎁</div>
+        <div class="motivator-title" id="motivatorTitle">Почти у цели!</div>
+        <div class="motivator-message" id="motivatorMessage">Добавьте ещё товаров и получите бонус!</div>
+        <div class="motivator-buttons">
+            <button class="motivator-btn primary" onclick="closeMotivator()">Продолжить покупки</button>
+            <button class="motivator-btn secondary" onclick="closeMotivator()">Закрыть</button>
+        </div>
+    </div>
+
+    <!-- МОДАЛЬНОЕ ОКНО КОРЗИНЫ -->
     <div class="cart-modal" id="cartModal">
         <div class="cart-content">
             <div class="cart-header">
@@ -681,7 +783,7 @@
             </div>
 
             <div class="upsell-section" id="upsellSection" style="display: none;">
-                <h3>🔥 Часто берут вместе</h3>
+                <h3>🔥 Рекомендуем добавить</h3>
                 <div class="upsell-items" id="upsellItems"></div>
             </div>
 
@@ -762,14 +864,15 @@
     let clientBonusBalance = 0;
     let useBonuses = false;
     let hasUnsavedOrder = false;
+    let lastShownMotivator = 0; // Timestamp последнего показа
 
     const BONUS_EARN_PERCENT = 3;
     const BONUS_MAX_USE_PERCENT = 70;
 
     const STATUS_TIERS = [
-        { threshold: 15000, title: 'Бесплатная доставка', emoji: '🚚' },
-        { threshold: 25000, title: 'Упаковка кваса в подарок', emoji: '🥤' },
-        { threshold: 50000, title: '5% скидка на заказ', emoji: '💰' }
+        { threshold: 15000, title: 'Бесплатная доставка', emoji: '🚚', message: 'Добавьте ещё на {amount}₸ и получите бесплатную доставку!' },
+        { threshold: 25000, title: 'Упаковка кваса в подарок', emoji: '🥤', message: 'Ещё {amount}₸ и упаковка кваса ваша!' },
+        { threshold: 50000, title: '5% скидка на заказ', emoji: '💰', message: 'До скидки 5% осталось всего {amount}₸!' }
     ];
 
     function getTg() {
@@ -783,6 +886,46 @@
 
     function formatPrice(price) {
         return parseInt(price).toLocaleString();
+    }
+
+    // ВСПЛЫВАЮЩИЕ МОТИВАТОРЫ
+    function showMotivator(icon, title, message) {
+        const now = Date.now();
+        // Не показываем чаще чем раз в 10 секунд
+        if (now - lastShownMotivator < 10000) return;
+        
+        lastShownMotivator = now;
+        
+        document.getElementById('motivatorIcon').textContent = icon;
+        document.getElementById('motivatorTitle').textContent = title;
+        document.getElementById('motivatorMessage').textContent = message;
+        document.getElementById('motivatorOverlay').classList.add('active');
+        document.getElementById('motivatorPopup').classList.add('active');
+        
+        // Автозакрытие через 5 секунд
+        setTimeout(closeMotivator, 5000);
+    }
+
+    window.closeMotivator = function() {
+        document.getElementById('motivatorOverlay').classList.remove('active');
+        document.getElementById('motivatorPopup').classList.remove('active');
+    };
+
+    function checkAndShowMotivator() {
+        const total = calculateSubtotal();
+        if (total === 0) return;
+
+        const nextTier = STATUS_TIERS.find(tier => total < tier.threshold);
+        if (!nextTier) return;
+
+        const remaining = nextTier.threshold - total;
+        const progress = (total / nextTier.threshold) * 100;
+
+        // Показываем если близко к порогу (80-95%)
+        if (progress >= 80 && progress < 100) {
+            const message = nextTier.message.replace('{amount}', formatPrice(remaining));
+            showMotivator(nextTier.emoji, nextTier.title, message);
+        }
     }
 
     function renderCategories() {
@@ -861,6 +1004,11 @@
             delete cart[productId];
         } else {
             cart[productId] = newQty;
+            
+            // Показываем мотиватор при добавлении товара
+            if (delta > 0) {
+                setTimeout(checkAndShowMotivator, 500);
+            }
         }
 
         hasUnsavedOrder = Object.keys(cart).length > 0;
@@ -932,7 +1080,6 @@
         }
     }
 
-
     function updateCartStatusBar() {
         const total = calculateSubtotal();
         const bar = document.getElementById('cartStatusBar');
@@ -969,13 +1116,17 @@
             document.getElementById('cartStatusMessage').textContent = 'Отличный заказ!';
         }
     }
+
     function showCart() {
         renderCartItems();
         showUpsells();
         updateCartSummary();
-        setupDatePicker();
         updateCartStatusBar();
+        setupDatePicker();
         document.getElementById('cartModal').classList.add('active');
+        
+        // Показываем мотиватор при открытии корзины если близко к порогу
+        setTimeout(checkAndShowMotivator, 1000);
     }
 
     function renderCartItems() {
@@ -1056,7 +1207,8 @@
             const maxBonusUse = Math.floor(subtotal * BONUS_MAX_USE_PERCENT / 100);
             const availableToUse = Math.min(clientBonusBalance, maxBonusUse);
             
-        updateCartStatusBar();
+            document.getElementById('availableBonuses').textContent = `${formatPrice(availableToUse)}₸`;
+            
             const bonusInfo = document.getElementById('bonusInfo');
             bonusInfo.style.display = useBonuses ? 'block' : 'none';
         } else {
@@ -1074,34 +1226,59 @@
         const upsellSection = document.getElementById('upsellSection');
         const upsellContainer = document.getElementById('upsellItems');
         
-        const availableProducts = products.filter(p => !cart[p.id]);
-        const randomProducts = availableProducts.sort(() => Math.random() - 0.5).slice(0, 3);
+        // Показываем ВСЕ товары (даже если они уже в корзине)
+        const randomProducts = products
+            .sort(() => Math.random() - 0.5)
+            .slice(0, 5); // Показываем 5 случайных
         
         if (randomProducts.length > 0) {
             upsellSection.style.display = 'block';
-            upsellContainer.innerHTML = randomProducts.map(product => `
-                <div class="upsell-item">
-                    <div class="upsell-item-name">${product.name}</div>
-                    <div class="upsell-item-price">${formatPrice(product.price)}₸</div>
-                    <button class="add-upsell-btn" onclick="addUpsell(${product.id})">+ Добавить</button>
-                </div>
-            `).join('');
+            upsellContainer.innerHTML = randomProducts.map(product => {
+                const inCart = cart[product.id] || 0;
+                const buttonText = inCart > 0 ? `+ Ещё (${inCart})` : '+ Добавить';
+                
+                return `
+                    <div class="upsell-item">
+                        <div class="upsell-item-name">${product.name}</div>
+                        <div class="upsell-item-price">${formatPrice(product.price)}₸</div>
+                        <button class="add-upsell-btn" onclick="addUpsell(${product.id})">${buttonText}</button>
+                    </div>
+                `;
+            }).join('');
         } else {
             upsellSection.style.display = 'none';
         }
     }
 
     window.addUpsell = function(productId) {
-        cart[productId] = 1;
+        const current = cart[productId] || 0;
+        cart[productId] = current + 1;
         hasUnsavedOrder = true;
         renderCartItems();
         updateCartSummary();
         renderProducts();
         updateStatusBar();
+        showUpsells(); // Обновляем допродажи
     };
 
     window.closeCart = function() {
         if (hasUnsavedOrder && Object.keys(cart).length > 0) {
+            // Проверяем близость к порогу перед закрытием
+            const total = calculateSubtotal();
+            const nextTier = STATUS_TIERS.find(tier => total < tier.threshold);
+            
+            if (nextTier) {
+                const remaining = nextTier.threshold - total;
+                const progress = (total / nextTier.threshold) * 100;
+                
+                // Если близко к порогу (75-99%), показываем мотиватор
+                if (progress >= 75 && progress < 100) {
+                    const message = nextTier.message.replace('{amount}', formatPrice(remaining));
+                    showMotivator(nextTier.emoji, 'Подождите!', message);
+                    return; // Не закрываем корзину
+                }
+            }
+            
             if (tg && tg.showConfirm) {
                 tg.showConfirm('Закрыть корзину без оформления заказа?', (confirmed) => {
                     if (confirmed) document.getElementById('cartModal').classList.remove('active');
