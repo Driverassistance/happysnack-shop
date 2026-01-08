@@ -892,7 +892,7 @@
     function showMotivator(icon, title, message) {
         const now = Date.now();
         // Не показываем чаще чем раз в 10 секунд
-        if (now - lastShownMotivator < 10000) return;
+        if (now - lastShownMotivator < 3000) return;
         
         lastShownMotivator = now;
         
@@ -1127,6 +1127,11 @@
         
         // Показываем мотиватор при открытии корзины если близко к порогу
         setTimeout(checkAndShowMotivator, 1000);
+        
+        // Обновляем кнопку внизу
+        if (tg && tg.MainButton) {
+            tg.MainButton.setText(`Оформить заказ: ${formatPrice(finalTotal)}₸`);
+        }
     }
 
     function renderCartItems() {
@@ -1196,6 +1201,11 @@
         
         updateBonusSection(subtotal);
         updateCartStatusBar();
+        
+        // Обновляем кнопку внизу
+        if (tg && tg.MainButton) {
+            tg.MainButton.setText(`Оформить заказ: ${formatPrice(finalTotal)}₸`);
+        }
     }
 
     function updateBonusSection(subtotal) {
@@ -1235,7 +1245,7 @@
             upsellSection.style.display = 'block';
             upsellContainer.innerHTML = randomProducts.map(product => {
                 const inCart = cart[product.id] || 0;
-                const buttonText = inCart > 0 ? `+ Ещё (${inCart})` : '+ Добавить';
+                const buttonText = '+ Добавить';
                 
                 return `
                     <div class="upsell-item">
