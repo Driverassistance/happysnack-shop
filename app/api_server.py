@@ -61,11 +61,16 @@ async def get_catalog(request):
             'photo_url': f'/api/photo/{prod.photo_file_id}' if prod.photo_file_id else None
         } for prod in products]
         
+        bonus_balance = 0
+        if user and user.client:
+            bonus_balance = float(user.client.bonus_balance)
+        
         return web.json_response({
             'products': products_data,
             'categories': categories_data,
             'is_first_order': is_first_order,
-            'needs_registration': not (user and user.client) if user_id else False
+            'needs_registration': not (user and user.client) if user_id else False,
+            'bonus_balance': bonus_balance
         })
     except Exception as e:
         logger.error(f"API Error: {e}")
