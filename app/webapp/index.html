@@ -922,7 +922,7 @@
         const progress = (total / nextTier.threshold) * 100;
 
         // Показываем если близко к порогу (80-95%)
-        if (progress >= 80 && progress < 100) {
+        if (progress >= 60 && progress < 100) {
             const message = nextTier.message.replace('{amount}', formatPrice(remaining));
             showMotivator(nextTier.emoji, nextTier.title, message);
         }
@@ -1023,23 +1023,31 @@
     };
 
     function updateCartDisplay() {
-        const itemCount = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
-        const total = calculateSubtotal();
+    const itemCount = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
+    const subtotal = calculateSubtotal();
+    
+    // Считаем итоговую сумму с учетом бонусов
+    let bonusUsed = 0;
+    if (useBonuses && clientBonusBalance > 0) {
+        const maxBonusUse = Math.floor(subtotal * BONUS_MAX_USE_PERCENT / 100);
+        bonusUsed = Math.min(clientBonusBalance, maxBonusUse);
+    }
+    const finalTotal = subtotal - bonusUsed;
 
-        if (!tg || !tg.MainButton) return;
+    if (!tg || !tg.MainButton) return;
 
-        if (itemCount === 0) {
-            tg.MainButton.hide();
-            document.getElementById('bottomStatusBar').style.display = 'none';
-            hasUnsavedOrder = false;
-            return;
-        }
+    if (itemCount === 0) {
+        tg.MainButton.hide();
+        document.getElementById('bottomStatusBar').style.display = 'none';
+        hasUnsavedOrder = false;
+        return;
+    }
 
-        tg.MainButton.setText(`Оформить заказ: ${formatPrice(total)}₸`);
-        tg.MainButton.show();
-        tg.MainButton.enable();
-        
-        updateStatusBar();
+    tg.MainButton.setText(`Оформить заказ: ${formatPrice(finalTotal)}₸`);
+    tg.MainButton.show();
+    tg.MainButton.enable();
+    
+    updateStatusBar();
     }
 
     function calculateSubtotal() {
@@ -1346,6 +1354,13 @@
         
         const finalTotal = subtotal - bonusUsed;
         const bonusEarn = Math.floor(finalTotal * BONUS_EARN_PERCENT / 100);
+
+        // Проверка минимальной суммы заказа
+        const MIN_ORDER_AMOUNT = 10000;
+        if (finalTotal < MIN_ORDER_AMOUNT) {
+            tg.showAlert(`❌ Минимальная сумма заказа ${formatPrice(MIN_ORDER_AMOUNT)}₸\n\nТекущая сумма: ${formatPrice(finalTotal)}₸\nДобавьте ещё товаров на ${formatPrice(MIN_ORDER_AMOUNT - finalTotal)}₸`);
+            return;
+        }
 
         document.getElementById('cartModal').classList.remove('active');
         tg.MainButton.showProgress();
