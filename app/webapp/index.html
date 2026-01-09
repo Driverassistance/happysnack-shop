@@ -1233,7 +1233,6 @@
         const checkbox = document.getElementById('useBonusCheckbox');
         useBonuses = checkbox.checked;
         updateCartSummary();
-        updateCartDisplay();
     };
 
     function showUpsells() {
@@ -1272,7 +1271,6 @@
         updateCartSummary();
         renderProducts();
         updateStatusBar();
-        showUpsells(); // Обновляем допродажи
     };
 
     window.closeCart = function() {
