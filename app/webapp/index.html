@@ -754,7 +754,7 @@
         <div class="motivator-message" id="motivatorMessage">Добавьте ещё товаров и получите бонус!</div>
         <div class="motivator-buttons">
             <button class="motivator-btn primary" onclick="closeMotivator()">Продолжить покупки</button>
-            <button class="motivator-btn secondary" onclick="closeMotivator()">Закрыть</button>
+            <button class="motivator-btn secondary" onclick="closeMotivatorAndOpenCart()">Оформить заказ</button>
         </div>
     </div>
 
@@ -911,6 +911,11 @@
         document.getElementById('motivatorPopup').classList.remove('active');
     };
 
+    window.closeMotivatorAndOpenCart = function() {
+        closeMotivator();
+        showCart();
+    };
+
     function checkAndShowMotivator() {
         const total = calculateSubtotal();
         if (total === 0) return;
@@ -1007,7 +1012,6 @@
             
             // Показываем мотиватор при добавлении товара
             if (delta > 0) {
-                setTimeout(checkAndShowMotivator, 500);
             }
         }
 
@@ -1127,7 +1131,6 @@
 
     function showCart() {
         renderCartItems();
-        showUpsells();
         updateCartSummary();
         updateCartStatusBar();
         setupDatePicker();
@@ -1282,21 +1285,6 @@
 
     window.closeCart = function() {
         if (hasUnsavedOrder && Object.keys(cart).length > 0) {
-            // Проверяем близость к порогу перед закрытием
-            const total = calculateSubtotal();
-            const nextTier = STATUS_TIERS.find(tier => total < tier.threshold);
-            
-            if (nextTier) {
-                const remaining = nextTier.threshold - total;
-                const progress = (total / nextTier.threshold) * 100;
-                
-                // Если близко к порогу (75-99%), показываем мотиватор
-                if (progress >= 75 && progress < 100) {
-                    const message = nextTier.message.replace('{amount}', formatPrice(remaining));
-                    showMotivator(nextTier.emoji, 'Подождите!', message);
-                    return; // Не закрываем корзину
-                }
-            }
             
             if (tg && tg.showConfirm) {
                 tg.showConfirm('Закрыть корзину без оформления заказа?', (confirmed) => {
@@ -1489,6 +1477,23 @@
                     document.getElementById('regModal').style.display = 'flex';
                     return;
                 }
+                
+                // Проверяем близость к порогу
+                const total = calculateSubtotal();
+                const nextTier = STATUS_TIERS.find(tier => total < tier.threshold);
+                
+                if (nextTier) {
+                    const remaining = nextTier.threshold - total;
+                    const progress = (total / nextTier.threshold) * 100;
+                    
+                    // Если близко к порогу (70-95%), показываем мотиватор
+                    if (progress >= 70 && progress < 100) {
+                        const message = nextTier.message.replace('{amount}', formatPrice(remaining));
+                        showMotivator(nextTier.emoji, nextTier.title, message);
+                        return; // Не открываем корзину
+                    }
+                }
+                
                 showCart();
             });
 
