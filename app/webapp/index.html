@@ -1027,31 +1027,24 @@
     };
 
     function updateCartDisplay() {
-    const itemCount = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
-    const subtotal = calculateSubtotal();
-    
-    // Считаем итоговую сумму с учетом бонусов
-    let bonusUsed = 0;
-    if (useBonuses && clientBonusBalance > 0) {
-        const maxBonusUse = Math.floor(subtotal * BONUS_MAX_USE_PERCENT / 100);
-        bonusUsed = Math.min(clientBonusBalance, maxBonusUse);
-    }
-    const finalTotal = subtotal - bonusUsed;
+        const itemCount = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
+        const subtotal = calculateSubtotal();
 
-    if (!tg || !tg.MainButton) return;
+        if (!tg || !tg.MainButton) return;
 
-    if (itemCount === 0) {
-        tg.MainButton.hide();
-        document.getElementById('bottomStatusBar').style.display = 'none';
-        hasUnsavedOrder = false;
-        return;
-    }
+        if (itemCount === 0) {
+            tg.MainButton.hide();
+            document.getElementById('bottomStatusBar').style.display = 'none';
+            hasUnsavedOrder = false;
+            return;
+        }
 
-    tg.MainButton.setText(`Оформить заказ: ${formatPrice(finalTotal)}₸`);
-    tg.MainButton.show();
-    tg.MainButton.enable();
-    
-    updateStatusBar();
+        // Просто показываем subtotal, updateCartSummary обновит с учётом бонусов
+        tg.MainButton.setText(`Оформить заказ: ${formatPrice(subtotal)}₸`);
+        tg.MainButton.show();
+        tg.MainButton.enable();
+        
+        updateStatusBar();
     }
 
     function calculateSubtotal() {
@@ -1132,12 +1125,11 @@
     function showCart() {
         renderCartItems();
         updateCartSummary();
+        showUpsells();
         updateCartStatusBar();
         setupDatePicker();
         document.getElementById('cartModal').classList.add('active');
         
-        // Показываем мотиватор при открытии корзины если близко к порогу
-        setTimeout(checkAndShowMotivator, 1000);
         
         // Обновляем кнопку внизу
         if (tg && tg.MainButton) {
