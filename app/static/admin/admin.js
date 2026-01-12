@@ -130,7 +130,7 @@ async function loadDashboardStats() {
         document.getElementById('pendingClients').textContent = stats.pending_clients;
         document.getElementById('lowStock').textContent = stats.low_stock_products;
     } catch (error) {
-        alert(Ошибка загрузки статистики: ${error.message});
+        alert(`Ошибка загрузки статистики: ${error.message}`);
     }
 }
 
@@ -157,7 +157,7 @@ async function loadProducts() {
             renderProductsGrid(products);
         }
     } catch (error) {
-        alert(Ошибка загрузки товаров: ${error.message});
+        alert(`Ошибка загрузки товаров: ${error.message}`);
     }
 }
 
@@ -240,7 +240,7 @@ async function editProduct(productId) {
         alert('Цена обновлена!');
         loadProducts();
     } catch (error) {
-        alert(Ошибка обновления товара: ${error.message});
+        alert(`Ошибка обновления товара: ${error.message}`);
     }
 }
 
@@ -253,7 +253,7 @@ async function toggleProduct(productId, isActive) {
         alert(`Товар ${isActive ? 'активирован' : 'деактивирован'}!`);
         loadProducts();
     } catch (error) {
-        alert(Ошибка изменения статуса: ${error.message});
+        alert(`Ошибка изменения статуса: ${error.message}`);
     }
 }
 
@@ -275,7 +275,7 @@ async function loadCategoriesTable() {
             </tr>
         `).join('');
     } catch (error) {
-        alert(Ошибка загрузки категорий: ${error.message});
+        alert(`Ошибка загрузки категорий: ${error.message}`);
     }
 }
 
@@ -291,7 +291,7 @@ async function showAddCategoryModal() {
         alert('Категория создана!');
         loadCategoriesTable();
     } catch (error) {
-        alert(Ошибка создания категории: ${error.message});
+        alert(`Ошибка создания категории: ${error.message}`);
     }
 }
 
@@ -473,7 +473,7 @@ async function loadClients() {
         
         document.getElementById('clientsContent').innerHTML = clientsHtml;
     } catch (error) {
-        alert(Ошибка загрузки клиентов: ${error.message});
+        alert(`Ошибка загрузки клиентов: ${error.message}`);
     }
 }
 
@@ -484,7 +484,7 @@ async function approveClient(clientId) {
         alert('Клиент одобрен!');
         loadClients();
     } catch (error) {
-        alert(Ошибка одобрения клиента: ${error.message});
+        alert(`Ошибка одобрения клиента: ${error.message}`);
     }
 }
 
@@ -522,12 +522,12 @@ async function loadOrders() {
             </tr>
         `).join('');
     } catch (error) {
-        alert(Ошибка загрузки заказов: ${error.message});
+        alert(`Ошибка загрузки заказов: ${error.message}`);
     }
 }
 
 function viewOrder(orderId) {
-    alert(`Просмотр заказа ${orderId}: эта функция еще не реализована.`);
+    alert(``Просмотр заказа ${orderId}: эта функция еще не реализована.``);
 }
 
 async function changeOrderStatus(orderId, currentStatus) {
@@ -544,7 +544,7 @@ async function changeOrderStatus(orderId, currentStatus) {
         alert('Статус обновлен!');
         loadOrders();
     } catch (error) {
-        alert(Ошибка изменения статуса: ${error.message});
+        alert(`Ошибка изменения статуса: ${error.message}`);
     }
 }
 
@@ -571,7 +571,7 @@ async function loadSettings() {
         };
         Object.keys(groups).forEach(id => renderSettings(id, settings.filter(groups[id])));
     } catch (error) {
-        alert(Ошибка загрузки настроек: ${error.message});
+        alert(`Ошибка загрузки настроек: ${error.message}`);
     }
 }
 
@@ -594,7 +594,7 @@ async function updateSetting(key, value) {
         });
         alert('Настройка обновлена!');
     } catch (error) {
-        alert(Ошибка обновления настройки: ${error.message});
+        alert(`Ошибка обновления настройки: ${error.message}`);
     }
 }
 
@@ -615,7 +615,7 @@ async function downloadTemplate() {
         window.URL.revokeObjectURL(url);
         alert('Шаблон скачан!');
     } catch (error) {
-        alert(Ошибка скачивания шаблона: ${error.message});
+        alert(`Ошибка скачивания шаблона: ${error.message}`);
     }
 }
 
@@ -643,7 +643,7 @@ async function importProducts(file) {
         alert(message);
         loadProducts();
     } catch (error) {
-        alert(Ошибка импорта: ${error.message});
+        alert(`Ошибка импорта: ${error.message}`);
     } finally {
         document.getElementById('importFile').value = '';
     }
@@ -652,4 +652,3 @@ async function importProducts(file) {
 // ============================================
 // AI AGENT DASHBOARD
 // ============================================
-
