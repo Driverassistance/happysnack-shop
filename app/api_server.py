@@ -741,30 +741,6 @@ async def get_dashboard_stats(request):
 # БЛОК 6: НАСТРОЙКИ
 # ============================================
 
-async def get_settings(request):
-    """Получить настройки системы"""
-    try:
-        settings = {
-            'welcome_bonus': int(os.getenv('WELCOME_BONUS', 5000)),
-            'min_order_amount': int(os.getenv('MIN_ORDER_AMOUNT', 10000)),
-            'first_order_discount_10k': 10,
-            'first_order_discount_20k': 15,
-            'first_order_discount_30k': 20,
-            'notifications_enabled': os.getenv('NOTIFICATIONS_ENABLED', 'true').lower() == 'true'
-        }
-        
-        return web.json_response(settings)
-        
-    except Exception as e:
-        print(f"API Error: {e}")
-        return web.json_response({'error': str(e)}, status=500)
-
-async def update_settings(request):
-    """Обновить настройки системы"""
-    try:
-        data = await request.json()
-        
-        # В production это нужно сохранять в БД
         # Пока возвращаем успех
         
         return web.json_response({'success': True})
