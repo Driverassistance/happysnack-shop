@@ -1422,6 +1422,32 @@ async def create_order_from_webapp(request):
             return web.json_response({'success': True})
     finally:
         db.close()
+async def init_settings_api(request):
+    """Инициализация настроек"""
+    db = SessionLocal()
+    try:
+        settings = [
+            {'key': 'bonus_earn_percent', 'value': '3', 'type': 'int', 'description': 'Процент начисления бонусов'},
+            {'key': 'bonus_max_use_percent', 'value': '70', 'type': 'int', 'description': 'Максимум оплаты бонусами'},
+            {'key': 'bonus_expiry_days', 'value': '30', 'type': 'int', 'description': 'Срок действия'},
+            {'key': 'min_order_amount', 'value': '10000', 'type': 'int', 'description': 'Минимальная сумма'},
+            {'key': 'tier1_threshold', 'value': '15000', 'type': 'int', 'description': 'Порог 1'},
+            {'key': 'tier2_threshold', 'value': '25000', 'type': 'int', 'description': 'Порог 2'},
+            {'key': 'tier3_threshold', 'value': '50000', 'type': 'int', 'description': 'Порог 3'},
+        ]
+        added = []
+        for s in settings:
+            ex = db.query(SystemSetting).filter(SystemSetting.key == s['key']).first()
+            if not ex:
+                db.add(SystemSetting(**s))
+                added.append(s['key'])
+        db.commit()
+        return web.json_response({'success': True, 'added': added})
+    except Exception as e:
+        db.rollback()
+        return web.json_response({'error': str(e)}, status=500)
+    finally:
+        db.close()
 async def update_client_profile_api(request):
     """Обновление профиля клиента из WebApp"""
     data = await request.json()
@@ -1499,6 +1525,7 @@ def create_app():
     # Settings API
     app.router.add_get("/api/settings", get_settings)
     app.router.add_post("/api/settings", update_setting)
+    app.router.add_post("/api/settings/init", init_settings_api)
 
     app.router.add_static('/admin', 'static/admin', name='admin')
     app.router.add_get('/', serve_webapp)
