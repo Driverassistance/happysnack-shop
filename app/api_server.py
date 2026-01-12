@@ -1480,7 +1480,6 @@ def create_app():
     # ADMIN - Остальное
     app.router.add_get('/api/admin/stats/dashboard', get_dashboard_stats)
     app.router.add_get('/api/admin/settings', get_settings)
-    app.router.add_put('/api/admin/settings', update_settings)
     app.router.add_get('/api/admin/sales_reps', get_sales_reps)
     app.router.add_post('/api/admin/sales_reps', add_sales_rep)
     app.router.add_put('/api/admin/sales_reps/{id}', update_sales_rep)
