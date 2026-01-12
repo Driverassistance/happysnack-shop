@@ -554,12 +554,20 @@ async function changeOrderStatus(orderId, currentStatus) {
 
 async function loadSettings() {
     try {
-        const settings = await apiFetch('/api/admin/settings');
+        const settingsObj = await apiFetch('/api/settings');
+        // Конвертируем объект в массив
+        const settings = Object.entries(settingsObj).map(([key, value]) => ({
+            key: key,
+            value: value,
+            type: typeof value === 'number' ? 'int' : 'string',
+            description: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+        }));
+        
         const groups = {
             bonusSettings: s => s.key.startsWith('bonus_'),
-            financeSettings: s => ['credit_limit_default', 'payment_delay_default', 'min_order_amount'].includes(s.key),
-            deliverySettings: s => ['delivery_free_from', 'delivery_cost', 'working_hours_start', 'working_hours_end'].includes(s.key),
-            discountSettings: s => s.key.startsWith('discount_') || s.key.includes('orders_for_')
+            financeSettings: s => ['min_order_amount'].includes(s.key),
+            deliverySettings: s => s.key.includes('tier'),
+            discountSettings: s => s.key.startsWith('discount_')
         };
         Object.keys(groups).forEach(id => renderSettings(id, settings.filter(groups[id])));
     } catch (error) {
@@ -580,7 +588,10 @@ function renderSettings(containerId, settings) {
 
 async function updateSetting(key, value) {
     try {
-        await apiFetch(`/api/admin/settings/${key}?value=${encodeURIComponent(value)}`, { method: 'PUT' });
+        await apiFetch('/api/settings', { 
+            method: 'POST',
+            body: JSON.stringify({ key, value })
+        });
         showSuccess('Настройка обновлена!');
     } catch (error) {
         showError(`Ошибка обновления настройки: ${error.message}`);
