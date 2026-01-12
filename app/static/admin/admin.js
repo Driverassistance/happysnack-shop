@@ -527,7 +527,7 @@ async function loadOrders() {
 }
 
 function viewOrder(orderId) {
-    alert(``Просмотр заказа ${orderId}: эта функция еще не реализована.``);
+    alert(`Просмотр заказа ${orderId}: эта функция еще не реализована.`);
 }
 
 async function changeOrderStatus(orderId, currentStatus) {
