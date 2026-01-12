@@ -4,17 +4,19 @@ API сервер для Telegram WebApp и Admin Dashboard
 """
 import logging
 logger = logging.getLogger(__name__)
+from dotenv import load_dotenv
+load_dotenv()
 from aiohttp import web
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine, func, desc
 import json
 import os
 from datetime import datetime, timedelta
-
 from models.user import User, Client, SalesRepresentative
 from models.product import Product, Category
 from models.order import Order, OrderItem
 from models.bonus import BonusTransaction
+from models.settings import SystemSetting
 import logging
 logger = logging.getLogger(__name__)
 
@@ -89,6 +91,56 @@ def get_category_icon(name):
         'Выпечка': '🥐'
     }
     return icons.get(name, '📦')
+
+
+
+async def get_settings(request):
+    """Получить все настройки"""
+    db = SessionLocal()
+    try:
+        settings = db.query(SystemSetting).all()
+        result = {}
+        for s in settings:
+            if s.type == 'int':
+                result[s.key] = int(s.value)
+            elif s.type == 'float':
+                result[s.key] = float(s.value)
+            elif s.type == 'bool':
+                result[s.key] = s.value.lower() == 'true'
+            else:
+                result[s.key] = s.value
+        return web.json_response(result)
+    except Exception as e:
+        logger.error(f"Ошибка получения настроек: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+    finally:
+        db.close()
+
+async def update_setting(request):
+    """Обновить настройку"""
+    db = SessionLocal()
+    try:
+        data = await request.json()
+        key = data.get('key')
+        value = data.get('value')
+        
+        if not key:
+            return web.json_response({'error': 'Key required'}, status=400)
+        
+        setting = db.query(SystemSetting).filter(SystemSetting.key == key).first()
+        if not setting:
+            return web.json_response({'error': 'Setting not found'}, status=404)
+        
+        setting.value = str(value)
+        db.commit()
+        
+        return web.json_response({'success': True, 'key': key, 'value': value})
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Ошибка обновления настройки: {e}")
+        return web.json_response({'error': str(e)}, status=500)
+    finally:
+        db.close()
 
 async def serve_webapp(request):
     """Отдать webapp файлы"""
@@ -1370,6 +1422,33 @@ async def create_order_from_webapp(request):
             return web.json_response({'success': True})
     finally:
         db.close()
+async def update_client_profile_api(request):
+    """Обновление профиля клиента из WebApp"""
+    data = await request.json()
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.telegram_id == data['user_id']).first()
+        if user:
+            from models.user import Client
+            client = user.client
+            if not client:
+                client = Client(user_id=user.id)
+                db.add(client)
+
+            client.company_name = data['company_name']
+            client.address = data['address']
+            client.contact_phone = data['contact_phone']
+            db.commit()
+            
+            return web.json_response({'success': True})
+        else:
+            return web.json_response({'success': False, 'error': 'User not found'}, status=404)
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Profile update error: {e}")
+        return web.json_response({'success': False, 'error': str(e)}, status=500)
+    finally:
+        db.close()
 def create_app():
     """Создаём приложение и регистрируем ВСЕ роуты"""
     app = web.Application()
@@ -1417,6 +1496,10 @@ def create_app():
     # STATIC & WEBAPP
     app.router.add_get('/profile/', serve_profile_webapp)
     app.router.add_get('/profile/{path:.*}', serve_profile_webapp)
+    # Settings API
+    app.router.add_get("/api/settings", get_settings)
+    app.router.add_post("/api/settings", update_setting)
+
     app.router.add_static('/admin', 'static/admin', name='admin')
     app.router.add_get('/', serve_webapp)
     app.router.add_get('/{path:.*}', serve_webapp)
@@ -1434,30 +1517,4 @@ if __name__ == '__main__':
     port = int(os.getenv('PORT', 8080))
     # access_log=None полностью убирает уведомления о входах
     web.run_app(app, host='0.0.0.0', port=port, access_log=None)
-async def update_client_profile_api(request):
-    """Обновление профиля клиента из WebApp"""
-    data = await request.json()
-    db = SessionLocal()
-    try:
-        user = db.query(User).filter(User.telegram_id == data['user_id']).first()
-        if user:
-            from models.user import Client
-            client = user.client
-            if not client:
-                client = Client(user_id=user.id)
-                db.add(client)
 
-            client.company_name = data['company_name']
-            client.address = data['address']
-            client.contact_phone = data['contact_phone']
-            db.commit()
-            
-            return web.json_response({'success': True})
-        else:
-            return web.json_response({'success': False, 'error': 'User not found'}, status=404)
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Profile update error: {e}")
-        return web.json_response({'success': False, 'error': str(e)}, status=500)
-    finally:
-        db.close()
