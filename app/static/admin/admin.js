@@ -130,7 +130,7 @@ async function loadDashboardStats() {
         document.getElementById('pendingClients').textContent = stats.pending_clients;
         document.getElementById('lowStock').textContent = stats.low_stock_products;
     } catch (error) {
-        showError(`Ошибка загрузки статистики: ${error.message}`);
+        alert(Ошибка загрузки статистики: ${error.message});
     }
 }
 
@@ -157,7 +157,7 @@ async function loadProducts() {
             renderProductsGrid(products);
         }
     } catch (error) {
-        showError(`Ошибка загрузки товаров: ${error.message}`);
+        alert(Ошибка загрузки товаров: ${error.message});
     }
 }
 
@@ -237,10 +237,10 @@ async function editProduct(productId) {
             method: 'PUT',
             body: JSON.stringify({ price: parseFloat(newPrice) })
         });
-        showSuccess('Цена обновлена!');
+        alert('Цена обновлена!');
         loadProducts();
     } catch (error) {
-        showError(`Ошибка обновления товара: ${error.message}`);
+        alert(Ошибка обновления товара: ${error.message});
     }
 }
 
@@ -250,10 +250,10 @@ async function toggleProduct(productId, isActive) {
             method: 'PUT',
             body: JSON.stringify({ is_active: isActive })
         });
-        showSuccess(`Товар ${isActive ? 'активирован' : 'деактивирован'}!`);
+        alert(`Товар ${isActive ? 'активирован' : 'деактивирован'}!`);
         loadProducts();
     } catch (error) {
-        showError(`Ошибка изменения статуса: ${error.message}`);
+        alert(Ошибка изменения статуса: ${error.message});
     }
 }
 
@@ -275,7 +275,7 @@ async function loadCategoriesTable() {
             </tr>
         `).join('');
     } catch (error) {
-        showError(`Ошибка загрузки категорий: ${error.message}`);
+        alert(Ошибка загрузки категорий: ${error.message});
     }
 }
 
@@ -288,10 +288,10 @@ async function showAddCategoryModal() {
         await apiFetch(`/api/admin/categories?name=${encodeURIComponent(name)}&sort_order=${sortOrder}`, {
             method: 'POST'
         });
-        showSuccess('Категория создана!');
+        alert('Категория создана!');
         loadCategoriesTable();
     } catch (error) {
-        showError(`Ошибка создания категории: ${error.message}`);
+        alert(Ошибка создания категории: ${error.message});
     }
 }
 
@@ -473,7 +473,7 @@ async function loadClients() {
         
         document.getElementById('clientsContent').innerHTML = clientsHtml;
     } catch (error) {
-        showError(`Ошибка загрузки клиентов: ${error.message}`);
+        alert(Ошибка загрузки клиентов: ${error.message});
     }
 }
 
@@ -481,10 +481,10 @@ async function approveClient(clientId) {
     if (!confirm('Одобрить регистрацию клиента?')) return;
     try {
         await apiFetch(`/api/admin/clients/${clientId}/approve`, { method: 'POST' });
-        showSuccess('Клиент одобрен!');
+        alert('Клиент одобрен!');
         loadClients();
     } catch (error) {
-        showError(`Ошибка одобрения клиента: ${error.message}`);
+        alert(Ошибка одобрения клиента: ${error.message});
     }
 }
 
@@ -522,7 +522,7 @@ async function loadOrders() {
             </tr>
         `).join('');
     } catch (error) {
-        showError(`Ошибка загрузки заказов: ${error.message}`);
+        alert(Ошибка загрузки заказов: ${error.message});
     }
 }
 
@@ -541,10 +541,10 @@ async function changeOrderStatus(orderId, currentStatus) {
     
     try {
         await apiFetch(`/api/admin/orders/${orderId}/status?new_status=${nextStatus}`, { method: 'PUT' });
-        showSuccess('Статус обновлен!');
+        alert('Статус обновлен!');
         loadOrders();
     } catch (error) {
-        showError(`Ошибка изменения статуса: ${error.message}`);
+        alert(Ошибка изменения статуса: ${error.message});
     }
 }
 
@@ -571,7 +571,7 @@ async function loadSettings() {
         };
         Object.keys(groups).forEach(id => renderSettings(id, settings.filter(groups[id])));
     } catch (error) {
-        showError(`Ошибка загрузки настроек: ${error.message}`);
+        alert(Ошибка загрузки настроек: ${error.message});
     }
 }
 
@@ -592,9 +592,9 @@ async function updateSetting(key, value) {
             method: 'POST',
             body: JSON.stringify({ key, value })
         });
-        showSuccess('Настройка обновлена!');
+        alert('Настройка обновлена!');
     } catch (error) {
-        showError(`Ошибка обновления настройки: ${error.message}`);
+        alert(Ошибка обновления настройки: ${error.message});
     }
 }
 
@@ -613,9 +613,9 @@ async function downloadTemplate() {
         a.click();
         a.remove();
         window.URL.revokeObjectURL(url);
-        showSuccess('Шаблон скачан!');
+        alert('Шаблон скачан!');
     } catch (error) {
-        showError(`Ошибка скачивания шаблона: ${error.message}`);
+        alert(Ошибка скачивания шаблона: ${error.message});
     }
 }
 
@@ -643,7 +643,7 @@ async function importProducts(file) {
         alert(message);
         loadProducts();
     } catch (error) {
-        showError(`Ошибка импорта: ${error.message}`);
+        alert(Ошибка импорта: ${error.message});
     } finally {
         document.getElementById('importFile').value = '';
     }
