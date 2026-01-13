@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 from dotenv import load_dotenv
 load_dotenv()
 from aiohttp import web
+import aiohttp_cors
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine, func, desc
 import json
@@ -1454,6 +1455,16 @@ async def update_client_profile_api(request):
 def create_app():
     """Создаём приложение и регистрируем ВСЕ роуты"""
     app = web.Application()
+    
+    # CORS настройки
+    cors = aiohttp_cors.setup(app, defaults={
+        "*": aiohttp_cors.ResourceOptions(
+            allow_credentials=True,
+            expose_headers="*",
+            allow_headers="*",
+            allow_methods="*"
+        )
+    })
 
     # WEBAPP ENDPOINTS
     app.router.add_get('/api/catalog', get_catalog)
@@ -1505,6 +1516,10 @@ def create_app():
     app.router.add_static('/admin', 'static/admin', name='admin')
     app.router.add_get('/', serve_webapp)
     app.router.add_get('/{path:.*}', serve_webapp)
+    
+    # Применяем CORS ко всем routes
+    for route in list(app.router.routes()):
+        cors.add(route)
 
     return app
 
