@@ -709,3 +709,8 @@ function getStatusText(status) {
 function getOrderStatusBadge(status) {
     return getStatusBadge(status);
 }
+
+// Текст статуса заказа (алиас)
+function getOrderStatusText(status) {
+    return getStatusText(status);
+}
