@@ -9,7 +9,7 @@
 
 const API_URL = window.location.hostname === 'localhost' 
     ? 'http://localhost:8000'
-    : 'https://happysnack-app.onrender.com';
+    : 'https://happysnack-shop-production.up.railway.app';
 
 // ВАЖНО: Убедитесь, что этот ID правильный для администратора/менеджера
 const ADMIN_TELEGRAM_ID = '473294026'; 
