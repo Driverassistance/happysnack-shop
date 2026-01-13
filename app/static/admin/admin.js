@@ -704,3 +704,8 @@ function getStatusText(status) {
     };
     return texts[status] || status;
 }
+
+// Бейдж статуса заказа (алиас)
+function getOrderStatusBadge(status) {
+    return getStatusBadge(status);
+}
