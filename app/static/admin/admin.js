@@ -672,3 +672,19 @@ function formatMoney(amount) {
         maximumFractionDigits: 0
     }).format(amount);
 }
+
+// Бейдж статуса
+function getStatusBadge(status) {
+    const badges = {
+        'active': '<span class="badge bg-success">Активен</span>',
+        'pending': '<span class="badge bg-warning">На модерации</span>',
+        'blocked': '<span class="badge bg-danger">Заблокирован</span>',
+        'new': '<span class="badge bg-primary">Новый</span>',
+        'confirmed': '<span class="badge bg-info">Подтвержден</span>',
+        'preparing': '<span class="badge bg-warning">Готовится</span>',
+        'delivering': '<span class="badge bg-primary">В доставке</span>',
+        'delivered': '<span class="badge bg-success">Доставлен</span>',
+        'cancelled': '<span class="badge bg-danger">Отменен</span>'
+    };
+    return badges[status] || `<span class="badge bg-secondary">${status}</span>`;
+}
