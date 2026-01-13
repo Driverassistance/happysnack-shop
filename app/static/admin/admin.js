@@ -652,3 +652,13 @@ async function importProducts(file) {
 // ============================================
 // AI AGENT DASHBOARD
 // ============================================
+// Заглушки для неимплементированных функций
+function loadSalesReps() {
+    console.log('loadSalesReps: не реализовано');
+    document.getElementById('sales_reps').innerHTML = '<p class="text-muted">Раздел в разработке</p>';
+}
+
+function loadAIConversations() {
+    console.log('loadAIConversations: не реализовано');
+    document.getElementById('ai').innerHTML = '<p class="text-muted">Раздел в разработке</p>';
+}

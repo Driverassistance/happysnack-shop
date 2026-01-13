@@ -510,7 +510,7 @@ async def get_client(request):
             'recent_orders': [
                 {
                     'id': o.id,
-                    'total_amount': float(o.total_amount),
+                    'total_amount': float(o.total),
                     'status': o.status,
                     'created_at': o.created_at.isoformat() if o.created_at else None
                 }
@@ -581,7 +581,7 @@ async def get_orders(request):
                 'id': o.id,
                 'client_id': o.client_id,
                 'client_name': o.client.company_name if o.client else 'Неизвестно',
-                'total_amount': float(o.total_amount),
+                'total_amount': float(o.total),
                 'discount_amount': float(o.discount_amount),
                 'status': o.status,
                 'created_at': o.created_at.isoformat() if o.created_at else None
@@ -615,7 +615,7 @@ async def get_order(request):
             'client_id': order.client_id,
             'client_name': order.client.company_name if order.client else 'Неизвестно',
             'client_phone': order.client.contact_phone if order.client else None,
-            'total_amount': float(order.total_amount),
+            'total_amount': float(order.total),
             'discount_amount': float(order.discount_amount),
             'status': order.status,
             'created_at': order.created_at.isoformat() if order.created_at else None,
@@ -679,7 +679,7 @@ async def get_dashboard_stats(request):
         start_date = datetime.utcnow() - timedelta(days=days)
         
         # Общая выручка
-        total_revenue = db.query(func.sum(Order.total_amount)).filter(
+        total_revenue = db.query(func.sum(Order.total)).filter(
             Order.created_at >= start_date
         ).scalar() or 0
         
@@ -706,7 +706,7 @@ async def get_dashboard_stats(request):
         # Топ клиенты
         top_clients_query = db.query(
             Client.company_name,
-            func.sum(Order.total_amount).label('total_spent')
+            func.sum(Order.total).label('total_spent')
         ).join(Order).filter(
             Order.created_at >= start_date
         ).group_by(Client.id, Client.company_name).order_by(desc('total_spent')).limit(5)
@@ -861,7 +861,7 @@ async def get_client_profile(request):
         client = user.client
         
         # Определяем статус
-        total_spent = db.query(func.sum(Order.total_amount)).filter(
+        total_spent = db.query(func.sum(Order.total)).filter(
             Order.client_id == client.id
         ).scalar() or 0
         
@@ -936,7 +936,7 @@ async def get_client_orders(request):
                 'id': order.id,
                 'created_at': order.created_at.isoformat() if order.created_at else None,
                 'status': order.status,
-                'total_amount': float(order.total_amount),
+                'total_amount': float(order.total),
                 'discount_amount': float(order.discount_amount),
                 'items_count': len(items),
                 'items': [
@@ -1048,7 +1048,7 @@ async def get_client_stats(request):
             Order.client_id == client.id
         ).scalar() or 0
         
-        total_spent = db.query(func.sum(Order.total_amount)).filter(
+        total_spent = db.query(func.sum(Order.total)).filter(
             Order.client_id == client.id
         ).scalar() or 0
         
