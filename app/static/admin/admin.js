@@ -662,3 +662,13 @@ function loadAIConversations() {
     console.log('loadAIConversations: не реализовано');
     document.getElementById('ai').innerHTML = '<p class="text-muted">Раздел в разработке</p>';
 }
+
+// Форматирование денег
+function formatMoney(amount) {
+    return new Intl.NumberFormat('ru-KZ', {
+        style: 'currency',
+        currency: 'KZT',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+    }).format(amount);
+}
