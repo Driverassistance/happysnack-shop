@@ -688,3 +688,19 @@ function getStatusBadge(status) {
     };
     return badges[status] || `<span class="badge bg-secondary">${status}</span>`;
 }
+
+// Текст статуса
+function getStatusText(status) {
+    const texts = {
+        'active': 'Активен',
+        'pending': 'На модерации',
+        'blocked': 'Заблокирован',
+        'new': 'Новый',
+        'confirmed': 'Подтвержден',
+        'preparing': 'Готовится',
+        'delivering': 'В доставке',
+        'delivered': 'Доставлен',
+        'cancelled': 'Отменен'
+    };
+    return texts[status] || status;
+}
