@@ -576,10 +576,33 @@ async function loadSettings() {
 }
 
 function renderSettings(containerId, settings) {
+    const hints = {
+        'tier1_threshold': 'Сумма заказа для получения бесплатной доставки',
+        'tier1_emoji': 'Эмодзи для отображения в мотиваторе (напр: 🚚)',
+        'tier1_title': 'Название награды (напр: Бесплатная доставка)',
+        'tier1_message': 'Текст мотиватора. {amount} заменится на остаток до порога',
+        'tier2_threshold': 'Сумма заказа для получения подарка',
+        'tier2_emoji': 'Эмодзи для отображения (напр: 🥤)',
+        'tier2_title': 'Название подарка (напр: Упаковка кваса)',
+        'tier2_message': 'Текст мотиватора. {amount} заменится на остаток',
+        'tier2_gift_product_id': 'ID товара-подарка из каталога (0 = без подарка)',
+        'tier3_threshold': 'Сумма заказа для скидки',
+        'tier3_emoji': 'Эмодзи для скидки (напр: 💰)',
+        'tier3_title': 'Название награды (напр: 5% скидка)',
+        'tier3_message': 'Текст мотиватора. {amount} заменится на остаток',
+        'bonus_earn_percent': 'Процент бонусов от суммы заказа (напр: 3 = 3%)',
+        'bonus_max_use_percent': 'Максимальный процент оплаты бонусами (напр: 70 = 70%)',
+        'bonus_expiry_days': 'Через сколько дней бонусы сгорают',
+        'min_order_amount': 'Минимальная сумма для оформления заказа (в тенге)'
+    };
+    
     const container = document.getElementById(containerId);
     container.innerHTML = settings.map(s => `
         <div class="row mb-3 align-items-center">
-            <div class="col-md-6"><label class="form-label">${s.description || s.key}</label></div>
+            <div class="col-md-6">
+                <label class="form-label">${s.description || s.key}</label>
+                ${hints[s.key] ? `<br><small class="text-muted">💡 ${hints[s.key]}</small>` : ''}
+            </div>
             <div class="col-md-4"><input type="text" class="form-control" id="setting_${s.key}" value="${s.value}" onchange="updateSetting('${s.key}', this.value)"></div>
             <div class="col-md-2"><small class="text-muted">${s.type}</small></div>
         </div>
