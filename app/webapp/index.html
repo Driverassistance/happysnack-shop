@@ -866,14 +866,33 @@
     let hasUnsavedOrder = false;
     let lastShownMotivator = 0; // Timestamp последнего показа
 
-    const BONUS_EARN_PERCENT = 3;
-    const BONUS_MAX_USE_PERCENT = 70;
+    let BONUS_EARN_PERCENT = 3;
+    let BONUS_MAX_USE_PERCENT = 70;
 
-    const STATUS_TIERS = [
+    let STATUS_TIERS = [
         { threshold: 15000, title: 'Бесплатная доставка', emoji: '🚚', message: 'Добавьте ещё на {amount}₸ и получите бесплатную доставку!' },
         { threshold: 25000, title: 'Упаковка кваса в подарок', emoji: '🥤', message: 'Ещё {amount}₸ и упаковка кваса ваша!' },
         { threshold: 50000, title: '5% скидка на заказ', emoji: '💰', message: 'До скидки 5% осталось всего {amount}₸!' }
     ];
+
+    // Загрузка настроек из API (НЕ блокирует UI)
+    function loadSettings() {
+        fetch('/api/settings')
+            .then(response => response.json())
+            .then(settings => {
+                BONUS_EARN_PERCENT = settings.bonus_earn_percent || 3;
+                BONUS_MAX_USE_PERCENT = settings.bonus_max_use_percent || 70;
+                
+                if (settings.tier1_threshold) STATUS_TIERS[0].threshold = settings.tier1_threshold;
+                if (settings.tier2_threshold) STATUS_TIERS[1].threshold = settings.tier2_threshold;
+                if (settings.tier3_threshold) STATUS_TIERS[2].threshold = settings.tier3_threshold;
+                
+                console.log('✅ Настройки загружены:', settings);
+            })
+            .catch(error => {
+                console.warn('⚠️ Ошибка загрузки настроек, используем defaults:', error);
+            });
+    }
 
     function getTg() {
         return window.Telegram?.WebApp || null;
@@ -1456,6 +1475,7 @@
     };
 
     function startApp() {
+        loadSettings(); // Загружаем настройки асинхронно
         tg = getTg();
 
         if (tg) {
