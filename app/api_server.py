@@ -1240,10 +1240,12 @@ async def create_order_from_webapp(request):
             return web.json_response({'success': False, 'error': 'Пользователь не найден'}, status=404)
 
         client = user.client
-
-        # Настройки бонусов (потом вынесем в дашборд)
-        BONUS_EARN_PERCENT = 3      # 3% начисление
-        BONUS_MAX_USE_PERCENT = 70  # До 70% можно использовать
+        # Загружаем настройки бонусов из БД
+        bonus_earn_setting = db.query(SystemSetting).filter(SystemSetting.key == 'bonus_earn_percent').first()
+        bonus_max_setting = db.query(SystemSetting).filter(SystemSetting.key == 'bonus_max_use_percent').first()
+        BONUS_EARN_PERCENT = int(bonus_earn_setting.value) if bonus_earn_setting else 3
+        
+        BONUS_MAX_USE_PERCENT = int(bonus_max_setting.value) if bonus_max_setting else 70
 
         # Рассчитываем total на основе корзины
         subtotal = 0
