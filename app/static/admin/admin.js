@@ -565,9 +565,9 @@ async function loadSettings() {
         
         const groups = {
             bonusSettings: s => s.key.startsWith('bonus_'),
-            financeSettings: s => ['min_order_amount'].includes(s.key),
-            deliverySettings: s => s.key.includes('tier'),
-            discountSettings: s => s.key.startsWith('discount_')
+            financeSettings: s => s.key === 'min_order_amount',
+            deliverySettings: s => s.key.startsWith('tier1_'),
+            discountSettings: s => s.key.startsWith('tier2_') || s.key.startsWith('tier3_')
         };
         Object.keys(groups).forEach(id => renderSettings(id, settings.filter(groups[id])));
     } catch (error) {
