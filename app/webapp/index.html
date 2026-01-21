@@ -1484,6 +1484,10 @@
             tg.enableClosingConfirmation();
 
             tg.MainButton.onClick(async () => {
+                if (!settingsLoaded) {
+                    console.log("⏳ Ждём загрузки настроек...");
+                    return;
+                }
                 if (needsRegistration) {
                     document.getElementById('regModal').style.display = 'flex';
                     return;
